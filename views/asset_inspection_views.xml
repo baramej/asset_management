@@ -1,0 +1,436 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_asset_inspection_form" model="ir.ui.view">
+        <field name="name">asset.inspection.form</field>
+        <field name="model">asset.inspection</field>
+        <field name="priority">1</field>
+        <field name="arch" type="xml">
+            <form string="Asset Inspection">
+                <header>
+                    <button name="action_schedule"
+                            string="Schedule"
+                            type="object"
+                            class="btn-primary"
+                            invisible="state != 'new'"/>
+                    <button name="action_request_material"
+                            string="Request Material"
+                            type="object"
+                            class="btn-primary"
+                            invisible="state != 'scheduled'"/>
+                    <button name="action_material_collected"
+                            string="Material Collected"
+                            type="object"
+                            class="btn-primary"
+                            invisible="state != 'request_material'"/>
+                    <button name="action_start"
+                            string="Start Inspection"
+                            type="object"
+                            class="btn-secondary"
+                            invisible="state not in ('scheduled', 'material_collected')"/>
+                    <button name="action_complete"
+                            string="Complete Inspection"
+                            type="object"
+                            class="btn-primary"
+                            invisible="state != 'in_progress'"/>
+                    <button name="action_create_maintenance"
+                            string="Create Maintenance Task"
+                            type="object"
+                            class="btn-warning"
+                            invisible="state != 'completed'
+                       or not escalation_required
+                       or maintenance_task_id != False"/>
+                    <!--                    <button name="action_create_maintenance"-->
+                    <!--                            string="Create Maintenance Task"-->
+                    <!--                            type="object"-->
+                    <!--                            class="btn-secondary"-->
+                    <!--                            invisible="state != 'completed' or maintenance_task_id != False"/>-->
+                    <button name="action_cancel"
+                            string="Cancel"
+                            type="object"
+                            invisible="state in ('completed', 'cancelled')"/>
+                    <button name="action_print_report"
+                            string="Print Report"
+                            type="object"
+                            icon="fa-print"/>
+                    <field name="state"
+                           widget="statusbar"
+                           statusbar_visible="new,scheduled,request_material,material_collected,in_progress,completed"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+
+                        <button name="action_view_helpdesk_ticket"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-ticket"
+                                invisible="ticket_id == False">
+                            <div class="o_field_widget o_stat_info">
+                                <span class="o_stat_value">
+                                    <field name="ticket_count"/>
+                                </span>
+                                <span class="o_stat_text">Ticket</span>
+                            </div>
+                        </button>
+
+                        <button name="action_view_maintenance_task"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-wrench"
+                                invisible="maintenance_task_id == False">
+                            <div class="o_field_widget o_stat_info">
+                                <span class="o_stat_value">
+                                    <field name="maintenance_task_count"/>
+                                </span>
+                                <span class="o_stat_text">Maint. Task</span>
+                            </div>
+                        </button>
+
+                        <button name="action_view_job_order"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-file-text-o"
+                                invisible="job_order_count == 0">
+                            <div class="o_field_widget o_stat_info">
+                                <span class="o_stat_value">
+                                    <field name="job_order_count"/>
+                                </span>
+                                <span class="o_stat_text">Job Order</span>
+                            </div>
+                        </button>
+
+                        <button name="action_view_pending_returns"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-undo"
+                                invisible="pending_return_count == 0">
+                            <div class="o_field_widget o_stat_info">
+                                <span class="o_stat_value">
+                                    <field name="pending_return_count"/>
+                                </span>
+                                <span class="o_stat_text">To Return</span>
+                            </div>
+                        </button>
+
+                    </div>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1>
+                            <field name="name" readonly="1"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group string="Details">
+                            <field name="asset_id"/>
+                            <field name="billing_entity_id"
+                                   options="{'no_create': True}"
+                                   placeholder="Auto-filled from asset..."/>
+                            <field name="ticket_id" readonly="1"/>
+                            <field name="scheduled_date"/>
+                            <field name="actual_date" readonly="1"/>
+                            <field name="completed_date" readonly="1"/>
+                            <field name="escalation_required"
+                                   readonly="1"
+                                   invisible="state != 'completed'"
+                                   widget="boolean_toggle"/>
+                            <field name="resolution_notes"
+                                   readonly="1"
+                                   invisible="state != 'completed' or escalation_required"/>
+                            <field name="escalation_notes"
+                                   readonly="1"
+                                   invisible="state != 'completed' or not escalation_required"/>
+                        </group>
+                        <group string="Assignment">
+                            <field name="maintenance_team_id"
+                                   options="{'no_create': True}"/>
+                            <field name="employee_ids" widget="many2many_tags"/>
+                            <field name="total_hours" readonly="1"/>
+                        </group>
+                    </group>
+
+                    <notebook>
+
+                        <!-- FINDINGS TAB -->
+                        <page string="Findings" name="findings">
+                            <field name="finding_ids">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="description" string="Finding"/>
+                                    <field name="notes" optional="show"/>
+                                    <field name="image"
+                                           widget="image"
+                                           options="{'size': [38, 38]}"
+                                           string="Photo"/>
+                                </list>
+                                <form>
+                                    <group>
+                                        <group>
+                                            <field name="description"
+                                                   placeholder="Describe the finding..."/>
+                                            <field name="severity"/>
+                                            <field name="notes"
+                                                   placeholder="Additional details..."/>
+                                        </group>
+                                        <group>
+                                            <field name="image"
+                                                   widget="image"
+                                                   options="{'size': [300, 300]}"/>
+                                        </group>
+                                    </group>
+                                </form>
+                            </field>
+                        </page>
+
+                        <!-- PARTS TAB -->
+                        <!-- PARTS TAB -->
+                        <page string="Parts &amp; Materials" name="parts">
+                            <field name="material_ids">
+                                <list editable="bottom">
+                                    <field name="product_id"
+                                           options="{'no_create': True}"
+                                           readonly="state != 'requested'"/>
+                                    <field name="is_consumable"
+                                           string="Consumable"
+                                           widget="boolean_toggle"
+                                           readonly="1"
+                                           decoration-success="is_consumable == True"
+                                           decoration-warning="is_consumable == False"/>
+                                    <field name="product_uom_id" readonly="1"/>
+                                    <field name="qty_available"
+                                           readonly="1"
+                                           decoration-danger="qty_available == 0"
+                                           decoration-warning="qty_available &lt; qty_requested"
+                                           decoration-success="qty_available &gt;= qty_requested"/>
+                                    <field name="qty_requested"
+                                           readonly="state != 'requested'"/>
+                                    <field name="qty_consumed"
+                                           invisible="state not in ('consumed', 'collected')"/>
+                                    <field name="state"
+                                           widget="badge"
+                                           decoration-info="state == 'requested'"
+                                           decoration-warning="state in ('approved', 'collected')"
+                                           decoration-success="state == 'consumed'"
+                                           decoration-danger="state == 'rejected'"
+                                           decoration-muted="state == 'returned'"
+                                           decoration-secondary="state == 'pending_return'"
+                                           readonly="1"/>
+                                    <field name="approved_by" readonly="1" optional="show"/>
+                                    <field name="rejection_reason" readonly="1" optional="show"/>
+                                    <button name="action_approve"
+                                            string="Approve"
+                                            type="object"
+                                            icon="fa-check"
+                                            class="btn-success btn-sm"
+                                            invisible="state != 'requested'"
+                                            groups="asset_management.group_asset_storekeeper"/>
+                                    <button name="action_reject"
+                                            string="Reject"
+                                            type="object"
+                                            icon="fa-times"
+                                            class="btn-danger btn-sm"
+                                            invisible="state != 'requested'"
+                                            groups="asset_management.group_asset_storekeeper"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Hours Worked" name="labor">
+                            <field name="labor_ids">
+                                <list editable="bottom">
+                                    <field name="employee_id"/>
+                                    <field name="date"/>
+                                    <field name="clock_in"
+                                           string="Clock In"
+                                           widget="float_time"/>
+                                    <field name="clock_out"
+                                           string="Clock Out"
+                                           widget="float_time"/>
+                                    <field name="hours"
+                                           string="Total Hours"
+                                           widget="float_time"
+                                           readonly="1"
+                                           decoration-muted="hours == 0"
+                                           decoration-success="hours &gt; 0"/>
+                                    <field name="description" placeholder="What was done..."/>
+                                </list>
+                            </field>
+                            <group class="oe_subtotal_footer">
+                                <field name="total_hours"
+                                       string="Total Hours Worked"
+                                       widget="float_time"
+                                       readonly="1"/>
+                            </group>
+                        </page>
+
+                        <!-- NOTES TAB -->
+                        <page string="Notes" name="notes">
+                            <field name="notes"
+                                   placeholder="General inspection notes..."/>
+                        </page>
+
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <!-- List view -->
+    <record id="view_asset_inspection_list" model="ir.ui.view">
+        <field name="name">asset.inspection.list</field>
+        <field name="model">asset.inspection</field>
+        <field name="arch" type="xml">
+            <list string="Inspections"
+                  decoration-muted="state == 'cancelled'"
+                  decoration-success="state == 'completed'"
+                  decoration-warning="state == 'in_progress'">
+                <field name="name"/>
+                <field name="asset_id"/>
+                <field name="billing_entity_id"/>
+                <field name="ticket_id"/>
+                <field name="maintenance_team_id"/>
+                <field name="scheduled_date"/>
+                <field name="total_hours"/>
+                <field name="state" widget="badge"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Kanban view -->
+    <record id="view_asset_inspection_kanban" model="ir.ui.view">
+        <field name="name">asset.inspection.kanban</field>
+        <field name="model">asset.inspection</field>
+        <field name="arch" type="xml">
+            <kanban default_group_by="state" class="o_kanban_small_column">
+                <field name="name"/>
+                <field name="asset_id"/>
+                <field name="state"/>
+                <field name="scheduled_date"/>
+                <field name="maintenance_team_id"/>
+                <templates>
+                    <t t-name="kanban-box">
+                        <div class="oe_kanban_card oe_kanban_global_click">
+                            <div class="o_kanban_record_top">
+                                <strong>
+                                    <field name="name"/>
+                                </strong>
+                            </div>
+                            <div class="o_kanban_record_body">
+                                <field name="asset_id"/>
+                                <br/>
+                                <i class="fa fa-calendar"/>
+                                <field name="scheduled_date"
+                                       widget="date"/>
+                            </div>
+                            <div class="o_kanban_record_bottom">
+                                <field name="maintenance_team_id"/>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="view_product_template_form_inspection_inherit" model="ir.ui.view">
+        <field name="name">product.template.form.inspection</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_only_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='general_information']" position="inside">
+                <group string="Inspection Settings" name="inspection_settings">
+                    <field name="is_consumable_in_inspection"
+                           widget="boolean_toggle"
+                           help="If enabled, this product is consumed during inspection (materials, chemicals, parts). If disabled, it is a tool or equipment that must be returned to the store after use."/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_asset_inspection_form_stock_patch" model="ir.ui.view">
+        <field name="name">asset.inspection.form.stock.patch</field>
+        <field name="model">asset.inspection</field>
+        <field name="inherit_id" ref="asset_management.view_asset_inspection_form"/>
+        <field name="arch" type="xml">
+
+            <!-- Add qty_reserved + picking_id columns to the materials list -->
+            <xpath expr="//field[@name='material_ids']//list//field[@name='qty_consumed']"
+                   position="before">
+
+                <field name="qty_reserved"
+                       string="Reserved"
+                       readonly="1"
+                       decoration-success="qty_reserved >= qty_requested"
+                       decoration-warning="qty_reserved &gt; 0 and qty_reserved &lt; qty_requested"
+                       decoration-danger="qty_reserved == 0 and state == 'approved'"/>
+
+                <field name="picking_id"
+                       string="Reservation"
+                       readonly="1"
+                       optional="show"/>
+
+            </xpath>
+
+            <!-- Add "Return Unused" button for collected lines (inspector/storekeeper use) -->
+            <xpath expr="//field[@name='material_ids']//list//button[@name='action_reject']"
+                   position="after">
+
+                <button name="action_return_unused"
+                        string="Return"
+                        type="object"
+                        icon="fa-undo"
+                        class="btn-secondary btn-sm"
+                        invisible="state not in ('collected', 'approved')"
+                        title="Return this material back to stock"/>
+
+                <button name="action_confirm_return"
+                        string="Confirm Return"
+                        type="object"
+                        icon="fa-check-circle"
+                        class="btn-warning btn-sm"
+                        invisible="state != 'pending_return'"
+                        title="Confirm equipment has been returned to store"
+                        groups="asset_management.group_asset_storekeeper"/>
+
+            </xpath>
+
+        </field>
+    </record>
+
+    <record id="action_asset_inspection" model="ir.actions.act_window">
+        <field name="name">Inspections</field>
+        <field name="res_model">asset.inspection</field>
+        <field name="view_mode">list,kanban,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No inspections yet</p>
+            <p>Inspections are created from helpdesk tickets.</p>
+        </field>
+    </record>
+
+    <!-- Helpdesk menu -->
+    <menuitem
+            id="menu_helpdesk_inspections"
+            name="Inspections"
+            parent="helpdesk.menu_helpdesk_root"
+            action="action_asset_inspection"
+            sequence="20"/>
+
+    <record id="action_asset_inspection_pending_returns" model="ir.actions.act_window">
+        <field name="name">Pending Returns</field>
+        <field name="res_model">asset.inspection</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('pending_return_count', '>', 0)]</field>
+        <field name="context">{'search_default_pending_returns': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No pending returns</p>
+            <p>Inspections with equipment awaiting return to store will appear here.</p>
+        </field>
+    </record>
+
+    <!-- Menu item under Helpdesk -->
+    <menuitem
+            id="menu_helpdesk_inspection_pending_returns"
+            name="Pending Returns"
+            parent="helpdesk.menu_helpdesk_root"
+            action="action_asset_inspection_pending_returns"
+            sequence="21"/>
+
+</odoo>

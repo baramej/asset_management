@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="helpdesk_ticket_view_form_asset_inherit" model="ir.ui.view">
+        <field name="name">helpdesk.ticket.form.asset.inspection</field>
+        <field name="model">helpdesk.ticket</field>
+        <field name="inherit_id" ref="helpdesk.helpdesk_ticket_view_form"/>
+        <field name="arch" type="xml">
+
+            <xpath expr="//div[hasclass('oe_button_box')]" position="inside">
+
+                <!-- Inspection smart button -->
+                <button name="action_view_inspection"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="fa-search"
+                        invisible="inspection_id == False">
+                    <div class="o_field_widget o_stat_info">
+                        <span class="o_stat_value">
+                            <field name="inspection_count"/>
+                        </span>
+                        <span class="o_stat_text">Inspection</span>
+                    </div>
+                </button>
+
+                <button name="action_view_maintenance_task"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="fa-wrench"
+                        invisible="maintenance_task_id == False">
+                    <div class="o_field_widget o_stat_info">
+                        <span class="o_stat_value">
+                            <field name="maintenance_task_count"/>
+                        </span>
+                        <span class="o_stat_text">Maintenance</span>
+                    </div>
+                </button>
+
+            </xpath>
+
+            <xpath expr="//header" position="inside">
+
+                <button name="action_schedule_inspection"
+                        string="Schedule Inspection"
+                        type="object"
+                        class="btn-primary"
+                        invisible="inspection_id != False"/>
+
+                <button name="action_create_maintenance_task"
+                        string="Create Maintenance Task"
+                        type="object"
+                        class="btn-secondary"
+                        invisible="inspection_state != 'completed' or maintenance_task_id != False"/>
+
+            </xpath>
+
+            <xpath expr="//sheet//group[1]" position="after">
+                <group string="Asset &amp; Maintenance" name="asset_group">
+                    <group>
+                        <field name="asset_id"/>
+                        <field name="cafm_ticket_id"
+                               readonly="1"
+                               invisible="cafm_ticket_id == False"/>
+                    </group>
+                    <group>
+                        <field name="inspection_id"
+                               readonly="1"
+                               invisible="inspection_id == False"/>
+                        <field name="inspection_state"
+                               readonly="1"
+                               invisible="inspection_id == False"
+                               widget="badge"
+                               decoration-secondary="inspection_state == 'new'"
+                               decoration-info="inspection_state == 'scheduled'"
+                               decoration-warning="inspection_state in ('request_material', 'material_collected', 'in_progress')"
+                               decoration-success="inspection_state == 'completed'"
+                               decoration-danger="inspection_state == 'cancelled'"/>
+                        <field name="maintenance_task_id"
+                               readonly="1"
+                               invisible="maintenance_task_id == False"/>
+                    </group>
+                </group>
+            </xpath>
+
+        </field>
+    </record>
+</odoo>

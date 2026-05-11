@@ -1,0 +1,127 @@
+<odoo>
+    <record id="view_asset_job_material_request_wizard" model="ir.ui.view">
+        <field name="name">asset.job.material.request.wizard.form</field>
+        <field name="model">asset.job.material.request.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Request Materials">
+                <field name="job_order_id" invisible="1"/>
+                <group string="Materials to Request">
+                    <field name="line_ids" nolabel="1">
+                        <list editable="bottom">
+                            <field name="material_line_id" invisible="1"/>
+                            <field name="product_id"/>
+                            <field name="is_consumable"
+                                   string="Consumable"
+                                   widget="boolean_toggle"
+                                   readonly="1"
+                                   decoration-success="is_consumable == True"
+                                   decoration-warning="is_consumable == False"/>
+                            <field name="description"/>
+                            <field name="quantity_requested"/>
+                        </list>
+                    </field>
+                </group>
+                <footer>
+                    <button name="action_confirm"
+                            string="Request Materials"
+                            type="object"
+                            class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_asset_job_complete_wizard" model="ir.ui.view">
+        <field name="name">asset.job.complete.wizard.form</field>
+        <field name="model">asset.job.complete.wizard</field>
+        <field name="arch" type="xml">
+            <form string="End Work — Confirm Materials">
+                <field name="job_order_id" invisible="1"/>
+                <group string="Material Consumption" invisible="not line_ids">
+                    <field name="line_ids" nolabel="1">
+                        <list editable="bottom">
+                            <field name="material_line_id" invisible="1"/>
+                            <field name="product_id" readonly="1"/>
+                            <field name="quantity_requested" readonly="1" string="Planned"/>
+                            <field name="quantity_used" string="Used"
+                                   invisible="consumption_state == 'returned'"/>
+                            <field name="consumption_state"
+                                   widget="badge"
+                                   decoration-success="consumption_state == 'consumed'"
+                                   decoration-warning="consumption_state == 'returned'"/>
+                        </list>
+                    </field>
+                </group>
+                <group invisible="line_ids">
+                    <div class="alert alert-info" role="alert">
+                        No approved materials to confirm for this job.
+                    </div>
+                </group>
+                <group string="Technician Notes">
+                    <field name="technician_notes" nolabel="1"
+                           placeholder="Describe work performed..."/>
+                </group>
+                <footer>
+                    <button name="action_confirm"
+                            string="End Work"
+                            type="object"
+                            class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_asset_job_close_wizard" model="ir.ui.view">
+        <field name="name">asset.job.close.wizard.form</field>
+        <field name="model">asset.job.close.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Close Job Order">
+                <field name="job_order_id" invisible="1"/>
+                <group string="Sign Off">
+                    <field name="signed_by_name"
+                           placeholder="Enter your full name to sign off..."/>
+                    <field name="signature" widget="signature"/>
+                </group>
+                <group string="Closing Notes">
+                    <field name="supervisor_close_notes" nolabel="1"
+                           placeholder="Any final notes before closing..."/>
+                </group>
+                <footer>
+                    <button name="action_confirm"
+                            string="Close Job Order"
+                            type="object"
+                            class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_asset_job_approve_wizard" model="ir.ui.view">
+        <field name="name">asset.job.approve.wizard.form</field>
+        <field name="model">asset.job.approve.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Approve Job Order">
+                <field name="job_order_id" invisible="1"/>
+                <group string="Sign Off">
+                    <field name="signed_by_name"
+                           placeholder="Enter your full name to approve..."/>
+                    <field name="signature" widget="signature"/>
+                </group>
+                <group string="Approval Notes">
+                    <field name="approval_notes" nolabel="1"
+                           placeholder="Any notes on approval..."/>
+                </group>
+                <footer>
+                    <button name="action_confirm"
+                            string="Approve Job Order"
+                            type="object"
+                            class="btn-success"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

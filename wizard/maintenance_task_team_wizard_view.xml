@@ -1,0 +1,54 @@
+<odoo>
+<record id="view_asset_team_schedule_viewer_wizard" model="ir.ui.view">
+    <field name="name">asset.team.schedule.viewer.wizard.form</field>
+    <field name="model">asset.team.schedule.viewer.wizard</field>
+    <field name="arch" type="xml">
+        <form string="Team Schedule">
+            <sheet>
+                <div class="oe_title">
+                    <h2>
+                        <i class="fa fa-calendar me-2"/>
+                        <field name="maintenance_team_id" readonly="1"/>
+                    </h2>
+                </div>
+
+                <div class="alert alert-info" role="alert"
+                     invisible="schedule_ids">
+                    <i class="fa fa-check-circle me-1"/>
+                    This team has no upcoming scheduled work — they are fully available.
+                </div>
+
+                <field name="schedule_ids"
+                       nolabel="1"
+                       invisible="not schedule_ids">
+                    <list>
+                        <field name="scheduled_date"
+                               string="Date &amp; Time"
+                               decoration-danger="color_state in ('in_progress', 'draft')"
+                               decoration-warning="color_state in ('scheduled', 'request_material', 'material_collected', 'material_approved')"
+                               decoration-success="color_state in ('done', 'completed', 'approved', 'closed')"
+                               decoration-info="color_state in ('submitted',)"
+                               widget="datetime"/>
+                        <field name="work_type"
+                               string="Type"
+                               widget="badge"
+                               decoration-info="work_type == 'inspection'"
+                               decoration-warning="work_type == 'preventive'"
+                               decoration-danger="work_type == 'corrective'"
+                               decoration-success="work_type == 'job_order'"/>
+                        <field name="reference" string="Reference"/>
+                        <field name="asset_name" string="Asset"/>
+                        <field name="state" string="Status"/>
+                        <field name="color_state" column_invisible="1"/>
+                    </list>
+                </field>
+            </sheet>
+            <footer>
+                <button string="Close"
+                        class="btn-primary"
+                        special="cancel"/>
+            </footer>
+        </form>
+    </field>
+</record>
+</odoo>

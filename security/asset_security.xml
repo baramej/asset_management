@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Privilege (replaces category in Odoo 19) -->
+    <record model="res.groups.privilege" id="res_groups_privilege_asset_management">
+        <field name="name">Asset Management</field>
+        <field name="sequence">20</field>
+    </record>
+
+    <!-- Storekeeper group -->
+    <record id="group_asset_storekeeper" model="res.groups">
+        <field name="name">Storekeeper</field>
+        <field name="privilege_id" ref="res_groups_privilege_asset_management"/>
+        <field name="comment">Can approve or reject material requests for inspections.</field>
+    </record>
+
+    <!-- Inspector group -->
+    <record id="group_asset_inspector" model="res.groups">
+        <field name="name">Inspector</field>
+        <field name="privilege_id" ref="res_groups_privilege_asset_management"/>
+        <field name="comment">Can perform and manage asset inspections.</field>
+    </record>
+
+    <!-- Asset Manager group — has all permissions -->
+    <record id="group_asset_manager" model="res.groups">
+        <field name="name">Manager</field>
+        <field name="privilege_id" ref="res_groups_privilege_asset_management"/>
+        <field name="implied_ids" eval="[(4, ref('group_asset_storekeeper')), (4, ref('group_asset_inspector'))]"/>
+        <field name="user_ids" eval="[(4, ref('base.user_root')), (4, ref('base.user_admin'))]"/>
+        <field name="comment">Full access to asset management including approvals.</field>
+    </record>
+</odoo>

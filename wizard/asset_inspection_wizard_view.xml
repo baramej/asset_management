@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_asset_inspection_wizard_form" model="ir.ui.view">
+        <field name="name">asset.inspection.wizard.form</field>
+        <field name="model">asset.inspection.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Schedule Inspection">
+
+                <sheet>
+                    <group>
+                        <group string="Assignment">
+                            <field name="ticket_id" invisible="1"/>
+                            <field name="maintenance_team_id"
+                                   options="{'no_create': True}"/>
+                            <field name="employee_ids"
+                                   widget="many2many_tags"
+                                   placeholder="Add employees..."/>
+                        </group>
+                        <group string="Schedule">
+                            <field name="scheduled_date"/>
+                            <field name="notes" placeholder="Any initial notes…"/>
+                        </group>
+                    </group>
+
+                    <group string="Team Schedule"
+                           invisible="not maintenance_team_id">
+                        <div class="alert alert-info" role="alert"
+                             invisible="team_schedule_ids">
+                            <i class="fa fa-check-circle"/> This team has no upcoming scheduled work.
+                        </div>
+                        <field name="team_schedule_ids"
+                               nolabel="1"
+                               invisible="not team_schedule_ids">
+                            <list>
+                                <field name="scheduled_date"
+                                       string="Date &amp; Time"
+                                       decoration-danger="color_state in ('in_progress', 'draft')"
+                                       decoration-warning="color_state in ('scheduled', 'request_material', 'material_collected', 'material_approved')"
+                                       decoration-success="color_state in ('done', 'completed', 'approved', 'closed')"
+                                       decoration-info="color_state in ('submitted',)"
+                                       widget="datetime"/>
+                                <field name="work_type"
+                                       string="Type"
+                                       widget="badge"
+                                       decoration-info="work_type == 'inspection'"
+                                       decoration-warning="work_type == 'preventive'"
+                                       decoration-danger="work_type == 'corrective'"
+                                       decoration-success="work_type == 'job_order'"/>
+                                <field name="reference" string="Reference"/>
+                                <field name="asset_name" string="Asset"/>
+                                <field name="state" string="Status"/>
+                                <field name="color_state" column_invisible="1"/>
+                            </list>
+                        </field>
+                    </group>
+
+                </sheet>
+
+                <footer>
+                    <button name="action_confirm"
+                            string="Confirm &amp; Schedule"
+                            type="object"
+                            class="btn-primary"/>
+                    <button string="Cancel"
+                            class="btn-secondary"
+                            special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

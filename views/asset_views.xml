@@ -1,0 +1,663 @@
+<odoo>
+
+    <!-- List view for Asset Management app -->
+    <record id="view_asset_mgmt_list" model="ir.ui.view">
+        <field name="name">account.asset.list.asset_mgmt</field>
+        <field name="model">account.asset</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="asset_code"/>
+                <field name="name"/>
+                <field name="customer_id"/>
+                <field name="lifecycle_state"/>
+                <field name="location_id"/>
+                <field name="department_id"/>
+                <field name="purchase_date"/>
+                <field name="original_value"/>
+                <field name="book_value"/>
+                <field name="state"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_asset_mgmt_form" model="ir.ui.view">
+        <field name="name">account.asset.form.asset_mgmt</field>
+        <field name="model">account.asset</field>
+        <field name="inherit_id" ref="account_asset.view_account_asset_form"/>
+        <field name="arch" type="xml">
+
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_open_move_history"
+                        type="object"
+                        class="oe_stat_button"
+                        string="Moves" icon="fa-arrows">
+                    <field name="move_history_count" widget="statinfo"/>
+                </button>
+
+                <button name="action_open_assign_history"
+                        type="object"
+                        class="oe_stat_button"
+                        string="Assignments" icon="fa-user">
+                    <field name="assign_history_count" widget="statinfo"/>
+                </button>
+
+                <button name="action_open_helpdesk_tickets"
+                        type="object"
+                        class="oe_stat_button"
+                        string="Helpdesk"
+                        icon="fa-life-ring">
+                    <field name="helpdesk_ticket_ids" widget="statinfo"/>
+                </button>
+
+                <button name="action_open_maintenance_tasks"
+                        type="object"
+                        class="oe_stat_button"
+                        string="Maintenance"
+                        icon="fa-life-ring">
+                    <field name="maintenance_task_ids" widget="statinfo"/>
+                </button>
+
+            </xpath>
+
+            <xpath expr="//field[@name='name']" position="after">
+                <field name="asset_code" string="Asset Code"/>
+            </xpath>
+
+            <!-- Add asset_type right after asset_code -->
+            <xpath expr="//field[@name='asset_code']" position="after">
+                <field name="asset_type" widget="radio" options="{'horizontal': true}"/>
+            </xpath>
+
+            <!-- Make asset_code and qr_code only visible for physical assets -->
+            <xpath expr="//field[@name='asset_code']" position="attributes">
+                <attribute name="invisible">asset_type != 'physical'</attribute>
+                <attribute name="string">Asset Code / Barcode</attribute>
+            </xpath>
+
+            <xpath expr="//field[@name='company_id']" position="after">
+                <field name="lifecycle_state" widget="statusbar"/>
+            </xpath>
+
+            <xpath expr="//sheet/group[1]" position="after">
+                <group string="Asset Details">
+                    <group>
+                        <field name="customer_id"/>
+                        <field name="responsible_id" widget="many2one_avatar_user"/>
+                        <field name="location_id" options="{'no_create': True}"/>
+                        <field name="department_id" options="{'no_create': True}"/>
+                        <!-- Physical only -->
+                        <field name="qr_code"
+                               invisible="asset_type != 'physical'"/>
+                        <field name="serial_no"
+                               invisible="asset_type != 'physical'"/>
+                        <!-- Location / Service -->
+                        <field name="facility_code"
+                               invisible="asset_type == 'physical'"
+                               string="Facility Code"/>
+                    </group>
+                    <group>
+                        <field name="manufacturer_id"
+                               string="Manufacturer"
+                               options="{'no_create': True}"
+                               invisible="asset_type != 'physical'"/>
+                        <field name="asset_category"
+                               invisible="asset_type != 'physical'"/>
+                    </group>
+                </group>
+            </xpath>
+
+            <xpath expr="//field[@name='acquisition_date']" position="after">
+                <field name="purchase_date"/>
+                <field name="purchase_price" widget="monetary"/>
+            </xpath>
+
+            <xpath expr="//notebook" position="before">
+                <group string="Warranty Information">
+                    <group>
+                        <field name="warranty_start_date"/>
+                        <field name="warranty_end_date"/>
+                        <field name="warranty_in_days" readonly="1"/>
+                    </group>
+                </group>
+                <group string="Preventive Maintenance">
+                    <group>
+                        <field name="pm_frequency_days"/>
+                        <field name="last_pm_date" readonly="1"/>
+                        <field name="next_pm_date" readonly="1"/>
+                    </group>
+
+                    <group string="Contract">
+                        <field name="contract_id" readonly="1"/>
+                    </group>
+                </group>
+
+            </xpath>
+
+            <xpath expr="//notebook" position="inside">
+                <page string="Spare Parts">
+                    <field name="spare_part_line_ids">
+                        <list editable="bottom">
+                            <field name="product_id"/>
+                            <field name="usage_type"/>
+                            <field name="min_qty"/>
+                            <field name="quantity"/>
+                            <field name="consumed_qty" readonly="1"/> <!-- NEW -->
+                            <field name="on_hand_qty" readonly="1"/>
+                        </list>
+                    </field>
+                </page>
+
+                <!--                <page string="Helpdesk Tickets" name="helpdesk_tickets">-->
+                <!--                    <field name="helpdesk_ticket_ids">-->
+                <!--                        <list>-->
+                <!--                            <field name="name"/>-->
+                <!--                            <field name="partner_id"/>-->
+                <!--                            <field name="stage_id"/>-->
+                <!--                            <field name="priority" widget="priority"/>-->
+                <!--                            <field name="user_id" widget="many2one_avatar_user"/>-->
+                <!--                            <field name="create_date"/>-->
+                <!--                        </list>-->
+                <!--                    </field>-->
+                <!--                </page>-->
+
+                <!--                <page string="Maintenance Tasks" name="maintenance_tasks">-->
+                <!--                    <field name="maintenance_task_ids">-->
+                <!--                        <list>-->
+                <!--                            <field name="name"/>-->
+                <!--                            <field name="maintenance_type"/>-->
+                <!--                            <field name="scheduled_date"/>-->
+                <!--                            <field name="assigned_user_id" widget="many2one_avatar_user"/>-->
+                <!--                            <field name="state" widget="badge"-->
+                <!--                                   decoration-info="state == 'draft'"-->
+                <!--                                   decoration-warning="state == 'in_progress'"-->
+                <!--                                   decoration-success="state == 'done'"/>-->
+                <!--                        </list>-->
+                <!--                    </field>-->
+                <!--                </page>-->
+                <page string="Tagging Info" name="tagging_info">
+
+                    <group string="Tagging Audit">
+                        <group>
+                            <field name="tagged_by_id" readonly="1"/>
+                            <field name="tagged_date" readonly="1"/>
+                        </group>
+                    </group>
+                </page>
+
+            </xpath>
+
+        </field>
+    </record>
+
+    <record id="view_asset_tagging_form" model="ir.ui.view">
+        <field name="name">account.asset.form.tagging</field>
+        <field name="model">account.asset</field>
+        <field name="arch" type="xml">
+            <form string="Asset Tagging" create="true" edit="true">
+                <header>
+                    <button name="action_complete_tagging"
+                            type="object"
+                            string="Complete Tagging"
+                            class="btn-primary"
+                    />
+                    <button string="Discard" class="btn-secondary" special="cancel"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="asset_type" widget="radio" options="{'horizontal': true}"/>
+                            <field name="asset_code"
+                                   string="Sticker Code / Barcode"
+                                   placeholder="Scan asset sticker here"
+                                   invisible="asset_type != 'physical'"/>
+                            <field name="qr_code"
+                                   string="QR Code"
+                                   invisible="asset_type != 'physical'"/>
+                            <field name="facility_code"
+                                   invisible="asset_type == 'physical'"
+                                   placeholder="e.g. ROOM-101, GARDEN-ZONE-A"/>
+                            <field name="asset_category"
+                                   invisible="asset_type != 'physical'"/>
+                        </group>
+                        <group>
+                            <field name="model_id"
+                                   string="Asset Model"
+                                   domain="[('state', '=', 'model')]"
+                                   options="{'no_create': True}"
+                                   invisible="asset_type != 'physical'"/>
+                            <field name="location_id"/>
+                            <field name="department_id"/>
+                            <field name="lifecycle_state" readonly="1"/>
+                        </group>
+                    </group>
+
+                    <group string="Auto Name">
+                        <field name="auto_name_preview" readonly="1"/>
+                    </group>
+
+                    <group string="Tagging Info">
+                        <field name="tagged_by_id" readonly="1"/>
+                        <field name="tagged_date" readonly="1"/>
+                    </group>
+
+                    <footer>
+                        <button name="action_complete_tagging"
+                                type="object"
+                                string="Complete Tagging"
+                                class="btn-primary"
+                        />
+                        <button string="Discard" class="btn-secondary" special="cancel"/>
+                    </footer>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_account_asset_form_inherit_location_map" model="ir.ui.view">
+        <field name="name">account.asset.form.location.map</field>
+        <field name="model">account.asset</field>
+        <field name="inherit_id" ref="account_asset.view_account_asset_form"/>
+        <field name="arch" type="xml">
+
+            <!-- بعد حقل location_id مباشرة نضيف lat/long -->
+            <xpath expr="//field[@name='manufacturer_id']" position="after">
+                <group string="Location Details">
+                    <field name="location_latitude" readonly="1"/>
+                    <field name="location_longitude" readonly="1"/>
+                </group>
+            </xpath>
+
+            <!-- نضيف تبويب صغير للخريطة في الـ notebook -->
+            <xpath expr="//sheet/notebook" position="inside">
+                <page string="Location Map">
+                    <field name="location_map_iframe" widget="html" nolabel="1"/>
+                </page>
+            </xpath>
+
+        </field>
+    </record>
+
+
+    <record id="view_asset_tagging_complete_wizard" model="ir.ui.view">
+        <field name="name">asset.tagging.complete.wizard.form</field>
+        <field name="model">asset.tagging.complete.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Tagging Completed">
+                <sheet>
+                    <group>
+                        <field name="asset_id"/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_edit_asset"
+                            type="object"
+                            string="Edit This Asset"
+                            class="btn-primary"/>
+                    <button name="action_new_tagging"
+                            type="object"
+                            string="Tag Another Asset"
+                            class="btn-secondary"/>
+                    <button string="Close"
+                            special="cancel"
+                            class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_asset_move_wizard" model="ir.ui.view">
+        <field name="name">asset.move.wizard.form</field>
+        <field name="model">asset.move.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Move Asset">
+                <group>
+                    <field name="asset_id"/>
+                </group>
+
+                <group string="Current Info">
+                    <group>
+                        <field name="asset_code" readonly="1"/>
+                        <field name="name" readonly="1"/>
+                    </group>
+                    <group>
+                        <field name="current_location_id" readonly="1"/>
+                        <field name="current_department_id" readonly="1"/>
+                    </group>
+                </group>
+
+                <group string="New Assignment">
+                    <group>
+                        <field name="new_location_id"/>
+                        <field name="new_department_id"/>
+                    </group>
+                    <group>
+                        <field name="move_date"/>
+                        <field name="note"/>
+                    </group>
+                </group>
+
+                <footer>
+                    <button name="action_confirm_move"
+                            type="object"
+                            string="Confirm Move"
+                            class="btn-primary"/>
+                    <button string="Cancel"
+                            special="cancel"
+                            class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_asset_move_history_list" model="ir.ui.view">
+        <field name="name">asset.move.history.list</field>
+        <field name="model">asset.move.history</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="move_date"/>
+                <field name="asset_id"/>
+                <field name="user_id"/>
+                <field name="old_location_id"/>
+                <field name="old_department_id"/>
+                <field name="new_location_id"/>
+                <field name="new_department_id"/>
+                <field name="note"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_asset_move_history_form" model="ir.ui.view">
+        <field name="name">asset.move.history.form</field>
+        <field name="model">asset.move.history</field>
+        <field name="arch" type="xml">
+            <form string="Asset Move History">
+                <sheet>
+                    <group>
+                        <field name="asset_id" readonly="1"/>
+                        <field name="move_date"/>
+                        <field name="user_id" readonly="1"/>
+                    </group>
+                    <group string="From / To">
+                        <group>
+                            <field name="old_location_id" readonly="1"/>
+                            <field name="old_department_id" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="new_location_id" readonly="1"/>
+                            <field name="new_department_id" readonly="1"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="note" readonly="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+
+    <record id="action_asset_tagging" model="ir.actions.act_window">
+        <field name="name">Asset Tagging</field>
+        <field name="res_model">account.asset</field>
+        <field name="view_mode">form,list</field>
+        <field name="view_id" ref="view_asset_tagging_form"/>
+        <field name="context">
+            {
+            'default_lifecycle_state': 'tagging'
+            }
+        </field>
+        <field name="domain">[('lifecycle_state', '=', 'tagging')]</field>
+    </record>
+
+    <record id="view_asset_assign_responsible_wizard" model="ir.ui.view">
+        <field name="name">asset.assign.responsible.wizard.form</field>
+        <field name="model">asset.assign.responsible.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Assign Responsible">
+                <group>
+                    <field name="asset_id"/>
+                </group>
+
+                <group string="Asset Info">
+                    <group>
+                        <field name="asset_code" readonly="1"/>
+                        <field name="name" readonly="1"/>
+                    </group>
+                </group>
+
+                <group string="Responsible">
+                    <group>
+                        <field name="current_responsible_id" readonly="1"/>
+                        <field name="new_responsible_id"/>
+                    </group>
+                    <group>
+                        <field name="note"/>
+                    </group>
+                </group>
+
+                <footer>
+                    <button name="action_assign_responsible"
+                            type="object"
+                            string="Assign"
+                            class="btn-primary"/>
+                    <button string="Cancel"
+                            special="cancel"
+                            class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_asset_assign_history_list" model="ir.ui.view">
+        <field name="name">asset.assign.history.list</field>
+        <field name="model">asset.assign.history</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="assign_date"/>
+                <field name="asset_id"/>
+                <field name="user_id"/>
+                <field name="old_responsible_id"/>
+                <field name="new_responsible_id"/>
+                <field name="note"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_asset_assign_history_form" model="ir.ui.view">
+        <field name="name">asset.assign.history.form</field>
+        <field name="model">asset.assign.history</field>
+        <field name="arch" type="xml">
+            <form string="Responsible History">
+                <sheet>
+                    <group>
+                        <field name="asset_id" readonly="1"/>
+                        <field name="assign_date"/>
+                        <field name="user_id" readonly="1"/>
+                    </group>
+                    <group string="Responsible Change">
+                        <group>
+                            <field name="old_responsible_id" readonly="1"/>
+                            <field name="new_responsible_id" readonly="1"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="note" readonly="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_asset_mgmt_search" model="ir.ui.view">
+        <field name="name">account.asset.search.asset_mgmt</field>
+        <field name="model">account.asset</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="asset_code"/>
+                <field name="customer_id"/>
+                <field name="location_id"/>
+                <filter string="Customer" name="group_customer" context="{'group_by': 'customer_id'}"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_asset_mgmt_search_panel" model="ir.ui.view">
+        <field name="name">account.asset.search.panel</field>
+        <field name="model">account.asset</field>
+        <field name="arch" type="xml">
+            <search string="Search Assets">
+
+                <!-- Basic search fields -->
+                <field name="name" string="Asset Name"/>
+                <field name="asset_code" string="Asset Code"/>
+                <field name="customer_id"/>
+                <field name="location_id"/>
+
+                <!-- Filters -->
+                <filter string="Operation" name="flt_operation" domain="[('lifecycle_state','=','operation')]"/>
+                <filter string="Maintenance" name="flt_maintenance" domain="[('lifecycle_state','=','maintenance')]"/>
+                <filter string="Monitoring" name="flt_monitoring" domain="[('lifecycle_state','=','monitoring')]"/>
+                <filter string="Renewal" name="flt_renewal" domain="[('lifecycle_state','=','renewal')]"/>
+                <filter string="Disposal" name="flt_disposal" domain="[('lifecycle_state','=','disposal')]"/>
+
+                <separator/>
+
+                <!-- Group By -->
+                <filter string="Group by Customer" name="grp_customer" context="{'group_by':'customer_id'}"/>
+                <filter string="Group by Location" name="grp_location" context="{'group_by':'location_id'}"/>
+                <filter string="Group by Lifecycle" name="grp_lifecycle" context="{'group_by':'lifecycle_state'}"/>
+
+                <!-- Search Panel -->
+                <searchpanel>
+                    <field name="customer_id" icon="fa-user" select="multi"/>
+                    <field name="location_id" icon="fa-map-marker" select="multi"/>
+                    <field name="lifecycle_state" icon="fa-flag" select="multi"/>
+                </searchpanel>
+
+            </search>
+        </field>
+    </record>
+
+    <record id="view_asset_model_list" model="ir.ui.view">
+        <field name="name">account.asset.model.list</field>
+        <field name="model">account.asset</field>
+        <field name="arch" type="xml">
+            <list string="Asset Models">
+                <field name="name"/>
+                <field name="asset_type"/>
+                <field name="asset_category"
+                       invisible="asset_type != 'physical'"/>
+                <field name="method" string="Depreciation Method"/>
+                <field name="method_number" string="Duration"/>
+                <field name="method_period" string="Period"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_asset_model_form" model="ir.ui.view">
+        <field name="name">account.asset.model.form</field>
+        <field name="model">account.asset</field>
+        <field name="arch" type="xml">
+            <form string="Asset Model">
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1>
+                            <field name="name" placeholder="Model Name..."/>
+                        </h1>
+                    </div>
+
+                    <group string="Classification">
+                        <group>
+                            <field name="asset_type" widget="radio"
+                                   options="{'horizontal': true}"/>
+                            <field name="asset_category"
+                                   invisible="asset_type != 'physical'"/>
+                        </group>
+                        <group>
+                            <field name="manufacturer_id"
+                                   options="{'no_create': True}"
+                                   invisible="asset_type != 'physical'"/>
+                            <field name="service_provider_id"
+                                   options="{'no_create': True}"/>
+                        </group>
+                    </group>
+
+                    <group string="Default Depreciation Settings"
+                           invisible="asset_type == 'service'">
+                        <group>
+                            <field name="account_asset_id"
+                                   domain="[('account_type', 'like', 'asset')]"/>
+                            <field name="account_depreciation_id"
+                                   domain="[('account_type', 'like', 'asset')]"/>
+                            <field name="account_depreciation_expense_id"
+                                   domain="[('account_type', '=', 'expense')]"/>
+                            <field name="journal_id"
+                                   domain="[('type', '=', 'general')]"/>
+                        </group>
+                        <group string="Default Asset Details">
+                            <group>
+                                <field name="customer_id"/>
+                                <field name="responsible_id" widget="many2one_avatar_user"/>
+                                <field name="location_id" options="{'no_create': True}"/>
+                                <field name="department_id" options="{'no_create': True}"/>
+                            </group>
+                            <group>
+                                <field name="qr_code" invisible="asset_type != 'physical'"/>
+                                <field name="serial_no" invisible="asset_type != 'physical'"/>
+                            </group>
+                        </group>
+                        <group>
+                            <field name="method"/>
+                            <field name="method_number"
+                                   string="Duration (Months)"
+                                   invisible="method == 'linear' and method_period == '1'"/>
+                            <field name="method_period"/>
+                            <field name="salvage_value"/>
+                        </group>
+                    </group>
+
+                    <group string="Default PM Settings">
+                        <group>
+                            <field name="pm_frequency_days"/>
+                        </group>
+                    </group>
+
+                    <group string="Notes">
+                        <field name="name" invisible="1"/>
+                    </group>
+
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+
+    <record id="action_asset_mgmt_assets" model="ir.actions.act_window">
+        <field name="name">Assets</field>
+        <field name="res_model">account.asset</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_asset_mgmt_search_panel"/>
+        <field name="context">{}</field>
+        <field name="domain">[('state', '!=', 'model')]</field>
+    </record>
+
+    <record id="action_asset_move_wizard" model="ir.actions.act_window">
+        <field name="name">Asset Move</field>
+        <field name="res_model">asset.move.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_asset_move_wizard"/>
+        <field name="target">new</field>
+    </record>
+
+    <record id="action_asset_assign_responsible_wizard" model="ir.actions.act_window">
+        <field name="name">Assign Responsible</field>
+        <field name="res_model">asset.assign.responsible.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_asset_assign_responsible_wizard"/>
+        <field name="target">new</field>
+    </record>
+
+
+</odoo>

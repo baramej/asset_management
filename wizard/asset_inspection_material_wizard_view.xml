@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_inspection_material_wizard_form" model="ir.ui.view">
+        <field name="name">asset.inspection.material.wizard.form</field>
+        <field name="model">asset.inspection.material.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Request Materials">
+                <field name="inspection_id" invisible="1"/>
+                <field name="line_ids">
+                    <list editable="bottom">
+                        <field name="product_id" options="{'no_create': True}"/>
+                        <field name="product_uom_id" readonly="1"/>
+                        <field name="qty_available" readonly="1"
+                               decoration-danger="qty_available == 0"
+                               decoration-warning="qty_available &lt; qty_requested"
+                               decoration-success="qty_available &gt;= qty_requested"/>
+                        <field name="qty_requested"/>
+                        <field name="is_consumable"
+                               string="Consumable"
+                               widget="boolean_toggle"
+                               readonly="1"/>
+                        <field name="notes"/>
+                    </list>
+                </field>
+                <footer>
+                    <button name="action_confirm"
+                            string="Confirm Request"
+                            type="object"
+                            class="btn-primary"/>
+                    <button string="Cancel"
+                            class="btn-secondary"
+                            special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

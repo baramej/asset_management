@@ -1,0 +1,301 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         CHECKLIST TEMPLATE — form & list
+    ══════════════════════════════════════════════════════════════════ -->
+
+    <record id="view_flat_checklist_template_form" model="ir.ui.view">
+        <field name="name">asset.flat.checklist.template.form</field>
+        <field name="model">asset.flat.checklist.template</field>
+        <field name="arch" type="xml">
+            <form string="Flat Checklist Template">
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" placeholder="Template name…"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="location"/>
+                            <field name="line_count" string="Total Items" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="active" widget="boolean_toggle"/>
+                            <field name="description" placeholder="Optional description…"/>
+                        </group>
+                    </group>
+
+                    <notebook>
+                        <page string="Keys" name="keys">
+                            <field name="line_keys_ids" nolabel="1">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="description" string="Item" required="1"/>
+                                    <field name="expected_qty" string="Expected Qty"/>
+                                    <field name="is_meter_reading" string="Meter Reading"/>
+                                    <field name="section" invisible="1"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Electrical" name="electrical">
+                            <field name="line_electrical_ids" nolabel="1">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="description" string="Item" required="1"/>
+                                    <field name="expected_qty" string="Expected Qty"/>
+                                    <field name="is_meter_reading" string="Meter Reading"/>
+                                    <field name="section" invisible="1"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Plumbing" name="plumbing">
+                            <field name="line_plumbing_ids" nolabel="1">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="description" string="Item" required="1"/>
+                                    <field name="expected_qty" string="Expected Qty"/>
+                                    <field name="is_meter_reading" string="Meter Reading"/>
+                                    <field name="section" invisible="1"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="General / Damages" name="general">
+                            <field name="line_general_ids" nolabel="1">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="description" string="Item" required="1"/>
+                                    <field name="expected_qty" string="Expected Qty"/>
+                                    <field name="is_meter_reading" string="Meter Reading"/>
+                                    <field name="section" invisible="1"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Other" name="other">
+                            <field name="line_other_ids" nolabel="1">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="description" string="Item" required="1"/>
+                                    <field name="expected_qty" string="Expected Qty"/>
+                                    <field name="is_meter_reading" string="Meter Reading"/>
+                                    <field name="section" invisible="1"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_flat_checklist_template_list" model="ir.ui.view">
+        <field name="name">asset.flat.checklist.template.list</field>
+        <field name="model">asset.flat.checklist.template</field>
+        <field name="arch" type="xml">
+            <list string="Checklist Templates">
+                <field name="name"/>
+                <field name="location"/>
+                <field name="line_count" string="Items"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_flat_checklist_template" model="ir.actions.act_window">
+        <field name="name">Flat Checklist Templates</field>
+        <field name="res_model">asset.flat.checklist.template</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         INSPECTION FORM — inherit to add type + flat checklist tab
+    ══════════════════════════════════════════════════════════════════ -->
+
+    <record id="view_asset_inspection_form_flat_inherit" model="ir.ui.view">
+        <field name="name">asset.inspection.form.flat</field>
+        <field name="model">asset.inspection</field>
+        <field name="inherit_id" ref="asset_management.view_asset_inspection_form"/>
+        <field name="arch" type="xml">
+
+            <!-- Hide Request Material button for flat inspections -->
+            <button name="action_request_material" position="attributes">
+                <attribute name="invisible">state != 'scheduled' or inspection_type == 'flat'</attribute>
+            </button>
+            <!-- Hide Material Collected button for flat inspections -->
+            <button name="action_material_collected" position="attributes">
+                <attribute name="invisible">state != 'request_material' or inspection_type == 'flat'</attribute>
+            </button>
+
+            <!-- Flat details group after title -->
+            <xpath expr="//div[hasclass('oe_title')]" position="after">
+                <field name="inspection_type" invisible="1"/>
+                <field name="checklist_total" invisible="1"/>
+                <group invisible="inspection_type != 'flat'" string="Flat Details">
+                    <group>
+                        <field name="inspection_type" widget="badge"
+                               decoration-info="inspection_type == 'general'"
+                               decoration-warning="inspection_type == 'flat'"/>
+                        <field name="flat_asset_id"/>
+                        <field name="flat_no"/>
+                        <field name="resident_name"/>
+                    </group>
+                    <group>
+                        <field name="checklist_template_id"
+                               options="{'no_create': True}"/>
+                        <button name="action_load_checklist"
+                                string="↺ Reload Checklist from Template"
+                                type="object"
+                                class="btn-secondary btn-sm"
+                                invisible="checklist_template_id == False"
+                                confirm="This will replace all existing checklist lines. Continue?"/>
+                        <field name="checklist_progress"
+                               widget="progressbar"
+                               invisible="checklist_total == 0"
+                               string="Progress"/>
+                    </group>
+                </group>
+            </xpath>
+
+            <!-- Add Flat Checklist tab -->
+            <xpath expr="//notebook" position="inside">
+                <page string="Flat Checklist" name="flat_checklist"
+                      invisible="inspection_type != 'flat'">
+
+                    <notebook>
+                        <page string="Keys" name="keys">
+                            <field name="checklist_keys_ids" nolabel="1">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="description" string="Item" readonly="1"/>
+                                    <field name="expected_qty" string="Qty" readonly="1"/>
+                                    <field name="status" widget="selection"/>
+                                    <field name="remarks"/>
+                                </list>
+                            </field>
+                        </page>
+
+                        <page string="Electrical" name="electrical">
+                            <field name="checklist_electrical_ids" nolabel="1">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="description" string="Item" readonly="1"/>
+                                    <field name="expected_qty" string="Qty" readonly="1"/>
+                                    <field name="status" widget="selection"/>
+                                    <field name="remarks"/>
+                                </list>
+                            </field>
+                        </page>
+
+                        <page string="Plumbing" name="plumbing">
+                            <field name="checklist_plumbing_ids" nolabel="1">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="description" string="Item" readonly="1"/>
+                                    <field name="expected_qty" string="Qty" readonly="1"/>
+                                    <field name="status" widget="selection"/>
+                                    <field name="remarks"/>
+                                </list>
+                            </field>
+                        </page>
+
+                        <page string="General / Damages" name="general_damages">
+                            <field name="checklist_general_ids" nolabel="1">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="description" string="Item" readonly="1"/>
+                                    <field name="expected_qty" string="Qty" readonly="1"/>
+                                    <field name="is_meter_reading" column_invisible="1"/>
+                                    <field name="status"
+                                           widget="selection"
+                                           invisible="is_meter_reading"/>
+                                    <field name="meter_value"
+                                           string="Reading"
+                                           invisible="not is_meter_reading"/>
+                                    <field name="meter_date"
+                                           invisible="not is_meter_reading"/>
+                                    <field name="remarks"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+
+                    <!-- Sign-off at the bottom of the checklist page -->
+                    <separator string="Sign-off"/>
+                    <group>
+                        <group>
+                            <field name="checked_by"/>
+                        </group>
+                        <group>
+                            <field name="resident_signature_name"/>
+                            <field name="resident_signature" widget="signature"/>
+                        </group>
+                    </group>
+
+                </page>
+            </xpath>
+
+            <!-- Hide Findings tab for flat inspections -->
+            <page name="findings" position="attributes">
+                <attribute name="invisible">inspection_type == 'flat'</attribute>
+            </page>
+
+            <!-- Hide Parts & Materials tab for flat inspections -->
+            <page name="parts" position="attributes">
+                <attribute name="invisible">inspection_type == 'flat'</attribute>
+            </page>
+        </field>
+    </record>
+
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         WIZARD — inherit to add inspection type + flat fields
+    ══════════════════════════════════════════════════════════════════ -->
+
+    <record id="view_asset_inspection_wizard_flat_inherit" model="ir.ui.view">
+        <field name="name">asset.inspection.wizard.form.flat</field>
+        <field name="model">asset.inspection.wizard</field>
+        <field name="inherit_id" ref="asset_management.view_asset_inspection_wizard_form"/>
+        <field name="arch" type="xml">
+
+            <!-- Insert type selector at the very top of the sheet -->
+            <xpath expr="//sheet/group[1]" position="before">
+                <group string="Inspection Type">
+                    <field name="inspection_type" widget="radio" required="1"/>
+                </group>
+            </xpath>
+
+            <!-- Flat-specific fields — shown only when type = flat -->
+            <xpath expr="//sheet/group[1]" position="after">
+                <group string="Flat Details" invisible="inspection_type != 'flat'">
+                    <group>
+                        <field name="flat_asset_id"/>
+                        <field name="flat_no"/>
+                        <field name="resident_name"/>
+                    </group>
+                    <group>
+                        <field name="checklist_template_id"
+                               required="inspection_type == 'flat'"
+                               options="{'no_create': True}"/>
+                    </group>
+                </group>
+            </xpath>
+
+        </field>
+    </record>
+
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         MENU — Checklist Templates under Configuration
+    ══════════════════════════════════════════════════════════════════ -->
+
+    <!-- Assumes your module has a configuration menu; adjust parent as needed -->
+    <menuitem
+            id="menu_flat_checklist_templates"
+            name="Flat Checklist Templates"
+            parent="menu_asset_mgmt_config"
+            action="action_flat_checklist_template"
+            sequence="50"/>
+
+</odoo>

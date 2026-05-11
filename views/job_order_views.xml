@@ -1,0 +1,436 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+
+    <record id="seq_asset_job_order" model="ir.sequence">
+        <field name="name">Asset Job Order</field>
+        <field name="code">asset.job.order</field>
+        <field name="prefix">JO-</field>
+        <field name="padding">5</field>
+    </record>
+
+    <record id="view_asset_job_order_form" model="ir.ui.view">
+        <field name="name">asset.job.order.form</field>
+        <field name="model">asset.job.order</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_request_material"
+                            string="Request Material"
+                            type="object"
+                            class="btn-secondary"
+                            invisible="state != 'draft'"/>
+
+                    <button name="action_approve_materials"
+                            string="Approve Materials"
+                            type="object"
+                            class="btn-success"
+                            invisible="state != 'request_material' or material_approval_state != 'pending'"
+                            groups="asset_management.group_asset_storekeeper"/>
+
+                    <button name="action_reject_materials"
+                            string="Reject Materials"
+                            type="object"
+                            class="btn-danger"
+                            invisible="state != 'request_material' or material_approval_state != 'pending'"
+                            groups="asset_management.group_asset_storekeeper"/>
+
+                    <button name="action_start"
+                            string="Start Work"
+                            type="object"
+                            class="btn-primary"
+                            invisible="state not in ['draft', 'material_approved']"/>
+
+                    <button name="action_end_work"
+                            string="End Work"
+                            type="object"
+                            class="btn-primary"
+                            invisible="state != 'in_progress'"/>
+
+                    <button name="action_approve"
+                            string="Approve Job"
+                            type="object"
+                            class="btn-success"
+                            invisible="state != 'done'"
+                            groups="asset_management.group_asset_storekeeper"/>
+
+                    <button name="action_reject"
+                            string="Reject"
+                            type="object"
+                            class="btn-danger"
+                            invisible="state != 'done'"
+                            groups="asset_management.group_asset_storekeeper"/>
+
+                    <button name="action_close"
+                            string="Close &amp; Sign"
+                            type="object"
+                            class="btn-primary"
+                            invisible="state != 'approved'"
+                            groups="asset_management.group_asset_supervisor"/>
+
+                    <button name="action_create_invoice"
+                            string="Create Invoice"
+                            type="object"
+                            class="btn-primary"
+                            invisible="state not in ('approved', 'closed') or invoice_id != False"
+                            groups="asset_management.group_asset_storekeeper"/>
+
+                    <button name="action_print_report"
+                            string="Print Report"
+                            type="object"
+                            icon="fa-print"/>
+
+                    <field name="state"
+                           widget="statusbar"
+                           statusbar_visible="draft,request_material,material_approved,in_progress,done,approved,closed"/>
+                </header>
+
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_maintenance_task"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-wrench"
+                                invisible="maintenance_task_id == False">
+                            <div class="o_stat_info">
+                                <span class="o_stat_text">Maintenance Task</span>
+                            </div>
+                        </button>
+
+                        <button name="action_view_helpdesk_ticket"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-ticket"
+                                invisible="helpdesk_ticket_id == False">
+                            <div class="o_field_widget o_stat_info">
+                                <span class="o_stat_value">1</span>
+                                <span class="o_stat_text">Ticket</span>
+                            </div>
+                        </button>
+
+                        <button name="action_view_inspection"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-search"
+                                invisible="inspection_id == False">
+                            <div class="o_field_widget o_stat_info">
+                                <span class="o_stat_value">1</span>
+                                <span class="o_stat_text">Inspection</span>
+                            </div>
+                        </button>
+
+                        <button name="action_view_invoice"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-file-invoice"
+                                invisible="invoice_id == False">
+                            <div class="o_field_widget o_stat_info">
+                                <span class="o_stat_value">
+                                    <field name="invoice_count"/>
+                                </span>
+                                <span class="o_stat_text">Invoice</span>
+                            </div>
+                        </button>
+                    </div>
+
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" readonly="1"/>
+                        </h1>
+                    </div>
+
+                    <group>
+                        <group string="Job Details">
+                            <field name="maintenance_task_id" readonly="1"/>
+                            <field name="asset_id" readonly="1"/>
+                            <field name="inspection_id" readonly="1"
+                                   invisible="inspection_id == False"/>
+                            <field name="helpdesk_ticket_id" readonly="1"
+                                   invisible="helpdesk_ticket_id == False"/>
+                            <field name="scheduled_date" readonly="1"/>
+                        </group>
+                        <group string="Assignment">
+                            <field name="assigned_user_id"/>
+                            <field name="maintenance_team_id"/>
+                            <field name="findings_completion_rate" readonly="1"/>
+                            <field name="material_approval_state"
+                                   widget="badge"
+                                   decoration-warning="material_approval_state == 'pending'"
+                                   decoration-success="material_approval_state == 'approved'"
+                                   decoration-danger="material_approval_state == 'rejected'"
+                                   decoration-secondary="material_approval_state == 'not_requested'"
+                                   invisible="material_approval_state == 'not_requested'"/>
+                        </group>
+                        <group string="Billing">
+                            <field name="billing_partner_id"/>
+                            <field name="labour_rate"/>
+                            <field name="invoice_state"
+                                   widget="badge"
+                                   decoration-success="invoice_state == 'paid'"
+                                   decoration-warning="invoice_state == 'partial'"
+                                   decoration-secondary="invoice_state == 'not_paid'"
+                                   decoration-danger="invoice_state == 'not_paid'"
+                                   invisible="invoice_id == False"/>
+                        </group>
+                    </group>
+
+                    <group>
+                        <group string="Time Tracking">
+                            <field name="start_datetime" readonly="1"/>
+                            <field name="end_datetime" readonly="1"/>
+                            <field name="total_hours" readonly="1" widget="float_time"/>
+                        </group>
+                        <group string="Closure"
+                               invisible="state not in ['approved', 'closed']">
+                            <field name="approved_by" readonly="1"/>
+                            <field name="approved_date" readonly="1"/>
+                            <field name="approved_by_name" readonly="1"
+                                   invisible="approved_by_name == False"/>
+                            <field name="approved_by_signature"
+                                   widget="image"
+                                   readonly="1"
+                                   invisible="approved_by_signature == False"
+                                   options="{'size': [200, 80]}"/>
+                            <field name="closed_by_name" readonly="1"
+                                   invisible="closed_by_name == False"/>
+                            <field name="closed_date" readonly="1"
+                                   invisible="closed_date == False"/>
+                            <field name="closed_by_signature"
+                                   widget="image"
+                                   readonly="1"
+                                   invisible="closed_by_signature == False"
+                                   options="{'size': [200, 80]}"/>
+                        </group>
+                    </group>
+
+                    <notebook>
+                        <page string="Findings" name="findings">
+                            <field name="finding_line_ids">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="is_from_inspection" readonly="1"
+                                           widget="boolean_toggle" optional="show"/>
+                                    <field name="description" required="1"/>
+                                    <field name="severity"
+                                           widget="badge"
+                                           decoration-danger="severity == 'critical'"
+                                           decoration-warning="severity == 'high'"
+                                           decoration-info="severity == 'medium'"
+                                           decoration-secondary="severity == 'low'"/>
+                                    <field name="status"
+                                           widget="badge"
+                                           decoration-success="status == 'done'"
+                                           decoration-danger="status == 'cannot_fix'"
+                                           decoration-warning="status == 'in_progress'"
+                                           decoration-secondary="status == 'pending'"/>
+                                    <field name="technician_note" optional="show"/>
+                                </list>
+                                <form>
+                                    <group>
+                                        <group>
+                                            <field name="description"/>
+                                            <field name="severity"/>
+                                            <field name="status"/>
+                                            <field name="is_from_inspection" readonly="1"/>
+                                            <field name="technician_note"/>
+                                        </group>
+                                    </group>
+                                    <group string="Images">
+                                        <field name="image_1" widget="image"/>
+                                        <field name="image_2" widget="image"/>
+                                        <field name="image_3" widget="image"/>
+                                    </group>
+                                </form>
+                            </field>
+                        </page>
+
+                        <page string="Materials" name="materials">
+                            <group>
+                                <field name="material_approval_state"
+                                       widget="badge"
+                                       decoration-warning="material_approval_state == 'pending'"
+                                       decoration-success="material_approval_state == 'approved'"
+                                       decoration-danger="material_approval_state == 'rejected'"
+                                       decoration-secondary="material_approval_state == 'not_requested'"/>
+                                <field name="material_approved_by" readonly="1"
+                                       invisible="material_approved_by == False"/>
+                                <field name="material_approved_date" readonly="1"
+                                       invisible="material_approved_date == False"/>
+                            </group>
+                            <field name="material_line_ids">
+                                <list editable="bottom">
+                                    <field name="product_id"/>
+                                    <field name="is_consumable"
+                                           string="Consumable"
+                                           widget="boolean_toggle"
+                                           readonly="1"
+                                           decoration-success="is_consumable == True"
+                                           decoration-warning="is_consumable == False"/>
+                                    <field name="description"/>
+                                    <field name="quantity_requested" string="Qty Planned"/>
+                                    <field name="quantity_used" string="Qty Used"/>
+                                    <field name="uom_id" readonly="1"/>
+                                    <field name="on_hand_qty" readonly="1"/>
+                                    <field name="approval_state"
+                                           widget="badge"
+                                           decoration-success="approval_state == 'approved'"
+                                           decoration-danger="approval_state == 'rejected'"
+                                           decoration-warning="approval_state == 'pending'"/>
+                                    <field name="source" readonly="1" optional="show"/>
+                                </list>
+                            </field>
+                        </page>
+
+                        <page string="Time Logs" name="time_logs">
+                            <field name="technician_log_ids">
+                                <list editable="bottom">
+                                    <field name="user_id"/>
+                                    <field name="date"/>
+                                    <field name="start_time" widget="float_time"/>
+                                    <field name="end_time" widget="float_time"/>
+                                    <field name="hours" readonly="1" widget="float_time"/>
+                                    <field name="activity"/>
+                                </list>
+                            </field>
+                        </page>
+
+                        <page string="Notes" name="notes">
+                            <group string="Technician Notes">
+                                <field name="technician_notes" nolabel="1"/>
+                            </group>
+                            <group string="Supervisor Close Notes"
+                                   invisible="state not in ['approved', 'closed']">
+                                <field name="supervisor_close_notes" nolabel="1"
+                                       groups="asset_management.group_asset_supervisor"/>
+                            </group>
+                        </page>
+                        <page string="Additional Services" name="additional_services">
+                            <p style="color: var(--color-text-secondary); font-size: 13px; margin-bottom: 8px;">
+                                Add any extra billable items not covered by labour or materials
+                                (e.g. equipment hire, contractor charges, specialist call-out fees).
+                            </p>
+                            <field name="additional_service_ids">
+                                <list editable="bottom">
+                                    <field name="name" required="1"/>
+                                    <field name="product_id"/>
+                                    <field name="quantity"/>
+                                    <field name="unit_price"/>
+                                    <field name="subtotal" readonly="1"/>
+                                </list>
+                            </field>
+                        </page>
+
+                        <page string="Chatter">
+                            <field name="message_ids" widget="mail_thread"/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_asset_job_order_list" model="ir.ui.view">
+        <field name="name">asset.job.order.list</field>
+        <field name="model">asset.job.order</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="asset_id"/>
+                <field name="maintenance_task_id"/>
+                <field name="maintenance_team_id"/>
+                <field name="scheduled_date"/>
+                <field name="findings_completion_rate" string="Completion %"/>
+                <field name="state" widget="badge"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_asset_job_order_search" model="ir.ui.view">
+        <field name="name">asset.job.order.search</field>
+        <field name="model">asset.job.order</field>
+        <field name="arch" type="xml">
+            <search string="Search Job Orders">
+                <field name="name" string="Job Order"/>
+                <field name="asset_id" string="Asset"/>
+                <field name="maintenance_task_id" string="Maintenance Task"/>
+                <field name="assigned_user_id" string="Assigned To"/>
+                <field name="maintenance_team_id" string="Team"/>
+                <field name="billing_partner_id" string="Billing Entity"/>
+
+                <filter string="Draft" name="flt_draft"
+                        domain="[('state','=','draft')]"/>
+                <filter string="Material Requested" name="flt_request_material"
+                        domain="[('state','=','request_material')]"/>
+                <filter string="Material Approved" name="flt_material_approved"
+                        domain="[('state','=','material_approved')]"/>
+                <filter string="In Progress" name="flt_in_progress"
+                        domain="[('state','=','in_progress')]"/>
+                <filter string="Done" name="flt_done"
+                        domain="[('state','=','done')]"/>
+                <filter string="Approved" name="flt_approved"
+                        domain="[('state','=','approved')]"/>
+                <filter string="Closed" name="flt_closed"
+                        domain="[('state','=','closed')]"/>
+                <filter string="Rejected" name="flt_rejected"
+                        domain="[('state','=','rejected')]"/>
+
+                <separator/>
+
+                <filter string="Materials Pending" name="flt_mat_pending"
+                        domain="[('material_approval_state','=','pending')]"/>
+                <filter string="Materials Approved" name="flt_mat_approved"
+                        domain="[('material_approval_state','=','approved')]"/>
+                <filter string="Materials Rejected" name="flt_mat_rejected"
+                        domain="[('material_approval_state','=','rejected')]"/>
+
+                <separator/>
+
+                <filter string="Invoiced" name="flt_invoiced"
+                        domain="[('invoice_id','!=',False)]"/>
+                <filter string="Not Invoiced" name="flt_not_invoiced"
+                        domain="[('invoice_id','=',False)]"/>
+
+                <separator/>
+
+                <filter string="My Jobs" name="flt_my_jobs"
+                        domain="[('assigned_user_id','=',uid)]"/>
+
+                <filter string="Scheduled This Month" name="flt_this_month"
+                        domain="[
+                        ('scheduled_date','&gt;=', (context_today()).strftime('%Y-%m-01')),
+                        ('scheduled_date','&lt;',  (context_today() + relativedelta(months=1)).strftime('%Y-%m-01'))
+                    ]"/>
+
+                <separator/>
+
+                <filter string="Group by Status" name="grp_state"
+                        context="{'group_by':'state'}"/>
+                <filter string="Group by Asset" name="grp_asset"
+                        context="{'group_by':'asset_id'}"/>
+                <filter string="Group by Team" name="grp_team"
+                        context="{'group_by':'maintenance_team_id'}"/>
+                <filter string="Group by Assigned To" name="grp_user"
+                        context="{'group_by':'assigned_user_id'}"/>
+                <filter string="Group by Scheduled Date" name="grp_scheduled_date"
+                        context="{'group_by':'scheduled_date:month'}"/>
+                <filter string="Group by Billing Entity" name="grp_billing"
+                        context="{'group_by':'billing_partner_id'}"/>
+                <searchpanel>
+                    <field name="maintenance_team_id" icon="fa-users" select="multi"/>
+                    <field name="assigned_user_id" icon="fa-user" select="multi"/>
+                    <field name="material_approval_state" icon="fa-check-square" select="multi"/>
+
+                </searchpanel>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_asset_job_order" model="ir.actions.act_window">
+        <field name="name">Job Orders</field>
+        <field name="res_model">asset.job.order</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_asset_job_order_search"/>
+    </record>
+
+
+</odoo>

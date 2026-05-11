@@ -1,0 +1,329 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="facility_management.Dashboard" owl="1">
+        <div class="o_facility_dashboard" style="overflow-y: auto; height: 100vh; padding-bottom: 50px;">
+            <div class="container-fluid">
+
+                <!-- Loading Spinner -->
+                <div t-if="state.loading" class="text-center py-5">
+                    <i class="fa fa-spinner fa-spin fa-3x text-primary"/>
+                    <p class="mt-3">Loading dashboard...</p>
+                </div>
+
+                <div t-if="!state.loading">
+
+                    <!-- Dashboard Header -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h1 class="mb-0">
+                                <i class="fa fa-dashboard"/>
+                                Facility Management Dashboard
+                            </h1>
+                            <p class="text-muted">Comprehensive overview of facility operations</p>
+                        </div>
+                    </div>
+
+                    <!-- KPI Cards Row -->
+                    <div class="row mb-4">
+
+                        <!-- Total Assets -->
+                        <div class="col-lg-3 col-md-6 mb-3">
+                            <div class="card border-0 shadow-sm h-100 bg-primary text-white"
+                                 style="cursor: pointer;"
+                                 t-on-click="() => this.openView('account.asset', 'Assets')">
+                                <div class="card-body text-center">
+                                    <i class="fa fa-cube fa-3x mb-3 opacity-75"/>
+                                    <h2 class="display-4 mb-2">
+                                        <t t-esc="state.data.total_assets"/>
+                                    </h2>
+                                    <p class="mb-0 small fw-bold text-uppercase">Total Assets</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Maintenance Tasks -->
+                        <div class="col-lg-3 col-md-6 mb-3">
+                            <div class="card border-0 shadow-sm h-100 bg-info text-white"
+                                 style="cursor: pointer;"
+                                 t-on-click="() => this.openView('asset.maintenance.task', 'Maintenance Tasks')">
+                                <div class="card-body text-center">
+                                    <i class="fa fa-wrench fa-3x mb-3 opacity-75"/>
+                                    <h2 class="display-4 mb-2">
+                                        <t t-esc="state.data.total_maintenance"/>
+                                    </h2>
+                                    <p class="mb-0 small fw-bold text-uppercase">Maintenance Tasks</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Helpdesk Tickets -->
+                        <div class="col-lg-3 col-md-6 mb-3">
+                            <div class="card border-0 shadow-sm h-100 bg-success text-white"
+                                 style="cursor: pointer;"
+                                 t-on-click="() => this.openView('helpdesk.ticket', 'Helpdesk Tickets')">
+                                <div class="card-body text-center">
+                                    <i class="fa fa-ticket fa-3x mb-3 opacity-75"/>
+                                    <h2 class="display-4 mb-2">
+                                        <t t-esc="state.data.total_helpdesk"/>
+                                    </h2>
+                                    <p class="mb-0 small fw-bold text-uppercase">Helpdesk Tickets</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Teams -->
+                        <div class="col-lg-3 col-md-6 mb-3">
+                            <div class="card border-0 shadow-sm h-100 bg-warning text-white"
+                                 style="cursor: pointer;"
+                                 t-on-click="() => this.openView('asset.maintenance.team', 'Maintenance Teams')">
+                                <div class="card-body text-center">
+                                    <i class="fa fa-users fa-3x mb-3 opacity-75"/>
+                                    <h2 class="display-4 mb-2">
+                                        <t t-esc="state.data.total_teams"/>
+                                    </h2>
+                                    <p class="mb-0 small fw-bold text-uppercase">Maintenance Teams</p>
+                                    <p class="mb-0 text-white">
+                                        <t t-esc="state.data.total_team_members"/>
+                                        Members
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Alerts -->
+                    <div class="row mb-4">
+
+                        <!-- Overdue Maintenance -->
+                        <div class="col-lg-4 col-md-6 mb-3">
+                            <div class="card border-0 shadow-sm h-100 border-danger"
+                                 style="cursor: pointer; border-left: 4px solid #dc3545 !important;"
+                                 t-on-click="() => this.openView('asset.maintenance.task', 'Overdue Tasks', [['state', 'not in', ['completed', 'cancelled']]])">
+                                <div class="card-body d-flex align-items-center">
+                                    <i class="fa fa-exclamation-triangle fa-2x text-danger me-3"/>
+                                    <div>
+                                        <h3 class="mb-0 text-danger"><t t-esc="state.data.maintenance_overdue"/></h3>
+                                        <small class="text-muted">Overdue Maintenance Tasks</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Unassigned Tickets -->
+                        <div class="col-lg-4 col-md-6 mb-3">
+                            <div class="card border-0 shadow-sm h-100 border-warning"
+                                 style="cursor: pointer; border-left: 4px solid #ffc107 !important;"
+                                 t-on-click="() => this.openView('helpdesk.ticket', 'Unassigned Tickets', [['user_id', '=', false]])">
+                                <div class="card-body d-flex align-items-center">
+                                    <i class="fa fa-user-times fa-2x text-warning me-3"/>
+                                    <div>
+                                        <h3 class="mb-0 text-warning"><t t-esc="state.data.helpdesk_unassigned"/></h3>
+                                        <small class="text-muted">Unassigned Tickets</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Busy / Available Teams -->
+                        <div class="col-lg-4 col-md-6 mb-3">
+                            <div class="card border-0 shadow-sm h-100 border-info"
+                                 style="border-left: 4px solid #0dcaf0 !important;">
+                                <div class="card-body">
+                                    <div class="mb-3 p-3 bg-light rounded">
+                                        <div class="text-muted small">AVAILABLE TEAMS</div>
+                                        <div class="h2 text-success"><t t-esc="state.data.teams_available"/></div>
+                                    </div>
+                                    <div class="p-3 bg-light rounded">
+                                        <div class="text-muted small">BUSY TEAMS</div>
+                                        <div class="h2 text-danger"><t t-esc="state.data.teams_busy"/></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ASSETS SECTION -->
+                    <div class="row mb-4">
+
+                        <!-- NEW: Assets by Company -->
+                        <div class="col-lg-6 mb-4">
+                            <div class="card border-0 shadow-sm h-100">
+                                <div class="card-header bg-primary text-white">
+                                    <h5 class="mb-0">
+                                        <i class="fa fa-building"/>
+                                        Assets by Company
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <div style="height: 300px;">
+                                        <canvas id="assetsCompanyChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Assets by Category -->
+                        <div class="col-lg-6 mb-4">
+                            <div class="card border-0 shadow-sm h-100">
+                                <div class="card-header bg-primary text-white">
+                                    <h5 class="mb-0">
+                                        <i class="fa fa-cubes"/>
+                                        Assets by Category
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <div style="height: 300px;">
+                                        <canvas id="assetsCategoryChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- MAINTENANCE SECTION -->
+                    <div class="row mb-4">
+
+                        <!-- Status -->
+                        <div class="col-lg-4 mb-4">
+                            <div class="card border-0 shadow-sm h-100">
+                                <div class="card-header bg-info text-white">
+                                    <h5 class="mb-0"><i class="fa fa-wrench"/>
+                                        Maintenance by Status</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div style="height: 300px;">
+                                        <canvas id="maintenanceStatusChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Priority -->
+                        <div class="col-lg-4 mb-4">
+    <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0">
+                <i class="fa fa-chart-bar"/>
+                Workload by Type
+            </h5>
+        </div>
+        <div class="card-body">
+            <div style="height: 300px; position: relative;">
+                <canvas id="maintenanceTypeBarChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+                        <!-- Type -->
+                        <div class="col-lg-4 mb-4">
+                            <div class="card border-0 shadow-sm h-100">
+                                <div class="card-header bg-info text-white">
+                                    <h5 class="mb-0"><i class="fa fa-tasks"/>
+                                        By Type</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div style="height: 300px;">
+                                        <canvas id="maintenanceTypeChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- HELPDESK SECTION -->
+                    <div class="row mb-4">
+
+                        <div class="col-lg-6 mb-4">
+                            <div class="card border-0 shadow-sm h-100">
+                                <div class="card-header bg-success text-white">
+                                    <h5 class="mb-0"><i class="fa fa-ticket"/>
+                                        Helpdesk by Status</h5>
+                                </div>
+                                <div class="card-body">
+                                    <canvas id="helpdeskStatusChart" style="height: 300px;"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-lg-6 mb-4">
+                            <div class="card border-0 shadow-sm h-100">
+                                <div class="card-header bg-success text-white">
+                                    <h5 class="mb-0"><i class="fa fa-exclamation-triangle"/>
+                                        Helpdesk by Priority</h5>
+                                </div>
+                                <div class="card-body">
+                                    <canvas id="helpdeskPriorityChart" style="height: 300px;"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TEAM SECTION -->
+                    <div class="row mb-4">
+
+                        <div class="col-lg-8 mb-4">
+                            <div class="card border-0 shadow-sm h-100">
+                                <div class="card-header bg-warning text-white">
+                                    <h5 class="mb-0"><i class="fa fa-users"/>
+                                        Team Workload Distribution</h5>
+                                </div>
+                                <div class="card-body">
+                                    <canvas id="teamWorkloadChart" style="height: 300px;"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-lg-4 mb-4">
+                            <div class="card border-0 shadow-sm h-100">
+                                <div class="card-header bg-warning text-white">
+                                    <h5 class="mb-0"><i class="fa fa-info-circle"/>
+                                        Team Status</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3 p-3 bg-light rounded">
+                                        <div class="text-muted small">AVAILABLE TEAMS</div>
+                                        <div class="h2 text-success"><t t-esc="state.data.teams_available"/></div>
+                                    </div>
+                                    <div class="p-3 bg-light rounded">
+                                        <div class="text-muted small">BUSY TEAMS</div>
+                                        <div class="h2 text-danger"><t t-esc="state.data.teams_busy"/></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TRENDS: Maintenance & Helpdesk -->
+                    <div class="row mb-4">
+
+                        <div class="col-lg-6 mb-4">
+                            <div class="card border-0 shadow-sm">
+                                <div class="card-header bg-dark text-white">
+                                    <h5 class="mb-0"><i class="fa fa-line-chart"/>
+                                        Maintenance Trends - Last 12 Months</h5>
+                                </div>
+                                <div class="card-body">
+                                    <canvas id="monthlyMaintenanceChart" style="height: 380px;"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-lg-6 mb-4">
+                            <div class="card border-0 shadow-sm">
+                                <div class="card-header bg-dark text-white">
+                                    <h5 class="mb-0"><i class="fa fa-line-chart"/>
+                                        Helpdesk Trends - Last 12 Months</h5>
+                                </div>
+                                <div class="card-body">
+                                    <canvas id="monthlyHelpdeskChart" style="height: 380px;"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </t>
+</templates>

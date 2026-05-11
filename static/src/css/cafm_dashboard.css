@@ -1,0 +1,339 @@
+.o_facility_dashboard {
+    padding: 20px;
+    background-color: #f8f9fa;
+    min-height: 100vh;
+}
+
+.o_facility_dashboard .card {
+    transition: all 0.3s ease;
+    border-radius: 10px;
+}
+
+.o_facility_dashboard .card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* HEADER TEXT = WHITE */
+.o_facility_dashboard .card-header {
+    border-radius: 10px 10px 0 0 !important;
+    font-weight: 600;
+    padding: 15px 20px;
+    color: white !important; /* CHANGED */
+}
+
+.o_facility_dashboard .card-body {
+    padding: 20px;
+}
+
+.o_facility_dashboard .card .display-4,
+.o_facility_dashboard .card h1,
+.o_facility_dashboard .card h2,
+.o_facility_dashboard .card .stat {
+    color: white !important;
+}
+
+.o_facility_dashboard h1 {
+    font-weight: 700;
+    color: #2c3e50;
+}
+
+.o_facility_dashboard h2 {
+    font-weight: 600;
+}
+
+.o_facility_dashboard .display-4 {
+    font-weight: 700;
+    font-size: 2.5rem;
+}
+
+.o_facility_dashboard .opacity-75 {
+    opacity: 0.75;
+}
+
+/* Color Palette (Green → Blue, Yellow → Blue) */
+.o_facility_dashboard .bg-primary {
+    background-color: #0d6efd !important;
+}
+
+.o_facility_dashboard .bg-info {
+    background-color: #0dcaf0 !important;
+}
+
+/* REPLACED GREEN (#198754) WITH A SHADE OF BLUE */
+.o_facility_dashboard .bg-success {
+    background-color: #0b5ed7 !important; /* Deep Blue */
+}
+
+/* REPLACED YELLOW (#ffc107) WITH SOFT BLUE */
+.o_facility_dashboard .bg-warning {
+    background-color: #58a6ff !important; /* Light Blue */
+}
+
+.o_facility_dashboard .card-header * {
+    color: white !important;
+}
+
+/* Danger stays the same */
+.o_facility_dashboard .bg-danger {
+    background-color: #dc3545 !important;
+}
+
+.o_facility_dashboard .bg-dark {
+    background-color: #212529 !important;
+}
+
+/* Text Colors Updated */
+.o_facility_dashboard .text-primary {
+    color: #0d6efd !important;
+}
+
+/* Green → Blue */
+.o_facility_dashboard .text-success {
+    color: #0b5ed7 !important;
+}
+
+/* Info stays */
+.o_facility_dashboard .text-info {
+    color: #0dcaf0 !important;
+}
+
+/* Yellow → Blue */
+.o_facility_dashboard .text-warning {
+    color: #58a6ff !important;
+}
+
+.o_facility_dashboard .text-danger {
+    color: #dc3545 !important;
+}
+
+.o_facility_dashboard .shadow-sm {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075) !important;
+}
+
+/* Table Styling */
+.o_facility_dashboard .table {
+    margin-bottom: 0;
+}
+
+.o_facility_dashboard .table td {
+    padding: 12px 15px;
+    border-bottom: 1px solid #dee2e6;
+    vertical-align: middle;
+}
+
+.o_facility_dashboard .table tr:last-child td {
+    border-bottom: none;
+}
+
+.o_facility_dashboard .table-sm td {
+    font-size: 0.875rem;
+    padding: 8px 12px;
+}
+
+.o_facility_dashboard .fw-bold {
+    font-weight: 600 !important;
+}
+
+/* Badge Styling */
+.o_facility_dashboard .badge {
+    font-size: 0.75rem;
+    padding: 0.25em 0.5em;
+    border-radius: 50%;
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+}
+
+.o_facility_dashboard .bg-secondary {
+    background-color: #6c757d !important;
+}
+
+/* Chart Containers */
+.o_facility_dashboard canvas {
+    max-height: 100%;
+    max-width: 100%;
+}
+
+.o_facility_dashboard .card-body > div[style*="height"] {
+    padding: 10px;
+}
+
+/* Card Border Variants (Updated to Blue Shades) */
+.o_facility_dashboard .border-primary {
+    border-left: 4px solid #0d6efd !important;
+}
+
+/* Green → Blue */
+.o_facility_dashboard .border-success {
+    border-left: 4px solid #0b5ed7 !important;
+}
+
+/* Info stays */
+.o_facility_dashboard .border-info {
+    border-left: 4px solid #0dcaf0 !important;
+}
+
+/* Yellow → Blue */
+.o_facility_dashboard .border-warning {
+    border-left: 4px solid #58a6ff !important;
+}
+
+.o_facility_dashboard .border-danger {
+    border-left: 4px solid #dc3545 !important;
+}
+
+/* Clickable Card Effects */
+.o_facility_dashboard .card[style*="cursor: pointer"] {
+    cursor: pointer;
+}
+
+.o_facility_dashboard .card[style*="cursor: pointer"]:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15) !important;
+}
+
+.o_facility_dashboard .card[style*="cursor: pointer"]:active {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Statistics Boxes */
+.o_facility_dashboard .bg-light {
+    background-color: #f8f9fa !important;
+    transition: all 0.3s ease;
+}
+
+.o_facility_dashboard .bg-light:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Alert Cards Borders Updated */
+.o_facility_dashboard .card.border-danger,
+.o_facility_dashboard .card.border-warning,
+.o_facility_dashboard .card.border-info {
+    border-width: 0 0 0 4px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .o_facility_dashboard {
+        padding: 10px;
+    }
+
+    .o_facility_dashboard .display-4 {
+        font-size: 2rem;
+    }
+
+    .o_facility_dashboard h1 {
+        font-size: 1.75rem;
+    }
+
+    .o_facility_dashboard .card-body {
+        padding: 15px;
+    }
+}
+
+@media (max-width: 576px) {
+    .o_facility_dashboard .display-4 {
+        font-size: 1.5rem;
+    }
+
+    .o_facility_dashboard h1 {
+        font-size: 1.5rem;
+    }
+}
+
+/* Loading Spinner Animation */
+.o_facility_dashboard .fa-spinner {
+    animation: fa-spin 1s infinite linear;
+}
+
+@keyframes fa-spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* Smooth Transitions */
+.o_facility_dashboard * {
+    transition: all 0.2s ease-in-out;
+}
+
+/* Icon Styling */
+.o_facility_dashboard i.fa {
+    vertical-align: middle;
+}
+
+/* Custom Scrollbar */
+.o_facility_dashboard::-webkit-scrollbar {
+    width: 8px;
+}
+
+.o_facility_dashboard::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.o_facility_dashboard::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.o_facility_dashboard::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Metric Cards Animations */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.o_facility_dashboard .card {
+    animation: fadeInUp 0.5s ease-out;
+}
+
+/* Priority Colors (Green/Yellow → Blue Shades) */
+.o_facility_dashboard .priority-critical {
+    color: #dc3545;
+    font-weight: bold;
+}
+
+.o_facility_dashboard .priority-high {
+    color: #0d6efd;
+    font-weight: bold;
+}
+
+.o_facility_dashboard .priority-medium {
+    color: #58a6ff;
+}
+
+.o_facility_dashboard .priority-low {
+    color: #0b5ed7;
+}
+
+/* Status Colors (Green/Yellow → Blue Shades) */
+.o_facility_dashboard .status-active {
+    color: #0b5ed7;
+}
+
+.o_facility_dashboard .status-maintenance {
+    color: #58a6ff;
+}
+
+.o_facility_dashboard .status-out-of-service {
+    color: #dc3545;
+}
+
+.o_facility_dashboard .status-retired {
+    color: #6c757d;
+}

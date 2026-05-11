@@ -1,0 +1,290 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ================================================================
+         CHECKLIST TEMPLATE
+    ================================================================ -->
+    <record id="view_asset_checklist_template_list" model="ir.ui.view">
+        <field name="name">asset.checklist.template.list</field>
+        <field name="model">asset.checklist.template</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="service_type"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_asset_checklist_template_form" model="ir.ui.view">
+        <field name="name">asset.checklist.template.form</field>
+        <field name="model">asset.checklist.template</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="service_type"/>
+                        <field name="active"/>
+                    </group>
+                    <notebook>
+                        <page string="Checklist Items">
+                            <field name="line_ids">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="description"/>
+                                    <field name="is_mandatory"/>
+                                    <field name="notes"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_asset_checklist_template" model="ir.actions.act_window">
+        <field name="name">Checklist Templates</field>
+        <field name="res_model">asset.checklist.template</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+
+    <!-- ================================================================
+         PM SCHEDULE  — standalone list/form
+    ================================================================ -->
+    <record id="view_asset_pm_schedule_list" model="ir.ui.view">
+        <field name="name">asset.pm.schedule.list</field>
+        <field name="model">asset.pm.schedule</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="asset_id"/>
+                <field name="service_type"/>
+                <field name="frequency_days"/>
+                <field name="last_run_date"/>
+                <field name="next_due_date"/>
+                <field name="maintenance_team_id"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_asset_pm_schedule_form" model="ir.ui.view">
+        <field name="name">asset.pm.schedule.form</field>
+        <field name="model">asset.pm.schedule</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="asset_id"/>
+                            <field name="service_type"/>
+                            <field name="frequency_days"/>
+                        </group>
+                        <group>
+                            <field name="checklist_template_id"/>
+                            <field name="maintenance_team_id"/>
+                            <field name="assigned_user_id" widget="many2one_avatar_user"/>
+                            <field name="requires_supervisor_signoff"/>
+                            <field name="active"/>
+                        </group>
+                    </group>
+                    <group string="Dates">
+                        <field name="last_run_date"/>
+                        <field name="next_due_date" readonly="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_asset_pm_schedule" model="ir.actions.act_window">
+        <field name="name">PM Schedules</field>
+        <field name="res_model">asset.pm.schedule</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+
+    <!-- ================================================================
+         PM SCHEDULES  — embedded tab on account.asset form
+    ================================================================ -->
+    <record id="view_asset_pm_schedules_inline" model="ir.ui.view">
+        <field name="name">account.asset.form.pm_schedules</field>
+        <field name="model">account.asset</field>
+        <field name="inherit_id" ref="account_asset.view_account_asset_form"/>
+        <field name="arch" type="xml">
+
+            <!-- Hide the old single pm_frequency_days field (replaced by pm_schedule_ids tab) -->
+            <xpath expr="//field[@name='pm_frequency_days']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+
+            <!-- Show next_pm_date as read-only computed summary -->
+            <xpath expr="//field[@name='next_pm_date']" position="attributes">
+                <attribute name="readonly">1</attribute>
+                <attribute name="string">Next Due (earliest)</attribute>
+            </xpath>
+
+            <!-- Add PM Schedules tab inside notebook -->
+            <xpath expr="//notebook" position="inside">
+                <page string="PM / Service Schedules" name="pm_schedules">
+                    <field name="pm_schedule_ids">
+                        <list editable="bottom">
+                            <field name="name"/>
+                            <field name="service_type"/>
+                            <field name="frequency_days" string="Every (days)"/>
+                            <field name="last_run_date"/>
+                            <field name="next_due_date" readonly="1"/>
+                            <field name="checklist_template_id"
+                                   domain="[('service_type','=',service_type)]"/>
+                            <field name="maintenance_team_id"/>
+                            <field name="requires_supervisor_signoff"/>
+                            <field name="active"/>
+                        </list>
+                        <form>
+                            <group>
+                                <group>
+                                    <field name="name"/>
+                                    <field name="service_type"/>
+                                    <field name="frequency_days"/>
+                                </group>
+                                <group>
+                                    <field name="checklist_template_id"
+                                           domain="[('service_type','=',service_type)]"/>
+                                    <field name="maintenance_team_id"/>
+                                    <field name="assigned_user_id"
+                                           widget="many2one_avatar_user"/>
+                                    <field name="requires_supervisor_signoff"/>
+                                    <field name="active"/>
+                                </group>
+                            </group>
+                            <group string="Dates">
+                                <field name="last_run_date"/>
+                                <field name="next_due_date" readonly="1"/>
+                            </group>
+                        </form>
+                    </field>
+                </page>
+            </xpath>
+
+        </field>
+    </record>
+
+
+    <!-- ================================================================
+         MAINTENANCE TASK  — extend existing form
+    ================================================================ -->
+    <record id="view_asset_maintenance_task_form_ext" model="ir.ui.view">
+        <field name="name">asset.maintenance.task.form.ext</field>
+        <field name="model">asset.maintenance.task</field>
+        <field name="inherit_id" ref="asset_management.view_asset_maintenance_task_form"/>
+        <field name="arch" type="xml">
+
+            <!-- pm_schedule_id near maintenance_type (not already in base form) -->
+            <xpath expr="//field[@name='is_emergency']" position="after">
+                <field name="pm_schedule_id" readonly="1"
+                       invisible="pm_schedule_id == False"/>
+            </xpath>
+
+            <!-- Supervisor sign-off alert banner -->
+            <xpath expr="//sheet" position="before">
+                <div class="alert alert-warning"
+                     role="alert"
+                     invisible="supervisor_signoff_state not in ['pending','rejected']">
+                    <strong>Supervisor Sign-off Required</strong>
+                    —
+                    Status:
+                    <field name="supervisor_signoff_state" readonly="1"/>
+                    <button name="action_supervisor_approve_signoff"
+                            string="Approve"
+                            type="object"
+                            class="btn-success btn-sm ms-2"
+                            groups="asset_management.group_asset_supervisor"
+                            invisible="supervisor_signoff_state != 'pending'"/>
+                    <button name="action_supervisor_reject_signoff"
+                            string="Reject"
+                            type="object"
+                            class="btn-danger btn-sm ms-1"
+                            groups="asset_management.group_asset_supervisor"
+                            invisible="supervisor_signoff_state != 'pending'"/>
+                    <button name="action_request_supervisor_signoff"
+                            string="Re-request Sign-off"
+                            type="object"
+                            class="btn-secondary btn-sm ms-1"
+                            invisible="supervisor_signoff_state != 'rejected'"/>
+                </div>
+            </xpath>
+
+            <!-- Request Sign-off header button -->
+            <xpath expr="//button[@name='action_done']" position="before">
+                <button name="action_request_supervisor_signoff"
+                        string="Request Sign-off"
+                        type="object"
+                        class="btn-secondary"
+                        invisible="not requires_supervisor_signoff or supervisor_signoff_state in ['pending','approved']"/>
+            </xpath>
+
+            <!-- Extend checklist tab to add done_by_id and done_date columns -->
+            <xpath expr="//page[@name='checklist']//field[@name='checklist_line_ids']//list//field[@name='notes']"
+                   position="before">
+                <field name="done_by_id" readonly="1"
+                       widget="many2one_avatar_user"
+                       optional="show"/>
+                <field name="done_date" readonly="1" optional="show"/>
+            </xpath>
+
+            <!-- Sign-off detail tab after description_notes -->
+            <xpath expr="//page[@name='description_notes']" position="after">
+                <page string="Sign-off"
+                      name="signoff"
+                      invisible="not requires_supervisor_signoff">
+                    <group>
+                        <field name="requires_supervisor_signoff"/>
+                        <field name="supervisor_signoff_state" readonly="1"/>
+                        <field name="supervisor_signoff_by" readonly="1"
+                               widget="many2one_avatar_user"/>
+                        <field name="supervisor_signoff_date" readonly="1"/>
+                        <field name="supervisor_signoff_note"/>
+                    </group>
+                </page>
+            </xpath>
+
+        </field>
+    </record>
+
+
+    <!-- ================================================================
+         CRON JOB
+    ================================================================ -->
+    <record id="ir_cron_pm_tasks_multi" model="ir.cron">
+        <field name="name">Asset: Generate PM / Service Tasks (Multi-Schedule)</field>
+        <field name="model_id" ref="account_asset.model_account_asset"/>
+        <field name="state">code</field>
+        <field name="code">model.cron_generate_pm_tasks_multi()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active">True</field>
+    </record>
+    <!--     <record id="ir_cron_asset_pm_scheduler" model="ir.cron">-->
+    <!--            <field name="name">Asset PM Scheduler</field>-->
+    <!--            <field name="model_id" ref="asset_management.model_asset_maintenance_task"/>-->
+    <!--            <field name="state">code</field>-->
+    <!--            <field name="code">model.cron_generate_contract_pm()</field>-->
+    <!--            <field name="interval_number">1</field>-->
+    <!--            <field name="interval_type">days</field>-->
+    <!--            <field name="user_id" ref="base.user_root"/>-->
+    <!--            <field name="active">True</field>-->
+    <!--        </record>-->
+
+    <!-- Disable the old single-frequency cron to avoid double-firing -->
+    <!-- Uncomment this once you have migrated all assets to pm_schedule_ids -->
+    <!--
+    <record id="ir_cron_generate_pm_tasks" model="ir.cron">
+        <field name="active">False</field>
+    </record>
+    -->
+
+</odoo>

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <record id="action_facility_dashboard" model="ir.actions.client">
+        <field name="name">Dashboard</field>
+        <field name="tag">facility_dashboard</field>
+        <field name="target">current</field>
+    </record>
+
+    <record id="view_facility_dashboard_form" model="ir.ui.view">
+        <field name="name">facility.dashboard.form</field>
+        <field name="model">asset.dashboard</field>
+        <field name="arch" type="xml">
+            <form string="Facility Dashboard" create="false" edit="false" delete="false">
+                <sheet>
+                    <div class="row">
+                        <div class="col-12">
+                            <h1>Asset Management Dashboard</h1>
+                            <p>Use the dashboard menu item to view the interactive dashboard.</p>
+                        </div>
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+</odoo>

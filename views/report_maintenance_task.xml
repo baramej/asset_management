@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- REPORT ACTION -->
+    <record id="action_report_maintenance_task" model="ir.actions.report">
+        <field name="name">Maintenance Task</field>
+        <field name="model">asset.maintenance.task</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">asset_management.report_maintenance_task_document</field>
+        <field name="report_file">asset_management.report_maintenance_task_document</field>
+        <field name="binding_model_id" ref="model_asset_maintenance_task"/>
+        <field name="binding_type">report</field>
+        <field name="print_report_name">'Maintenance Task - %s' % (object.name)</field>
+    </record>
+
+    <!-- PAPER FORMAT (OPTIONAL) -->
+    <record id="paperformat_maintenance_task" model="report.paperformat">
+        <field name="name">Maintenance Task Format</field>
+        <field name="format">A4</field>
+        <field name="orientation">Portrait</field>
+        <field name="margin_top">60</field>
+        <field name="margin_bottom">30</field>
+        <field name="margin_left">7</field>
+        <field name="margin_right">7</field>
+        <field name="header_line" eval="False"/>
+        <field name="header_spacing">50</field>
+        <field name="dpi">90</field>
+    </record>
+
+    <record id="action_report_maintenance_task" model="ir.actions.report">
+        <field name="paperformat_id" ref="paperformat_maintenance_task"/>
+    </record>
+
+    <!-- REPORT TEMPLATE -->
+    <template id="report_maintenance_task_document">
+
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <t t-call="web.external_layout">
+
+                    <main class="page">
+
+                        <h2 class="text-center mb-4">Maintenance Task Report</h2>
+
+                        <div class="row mb-4">
+                            <div class="col-6">
+                                <table class="table table-sm table-borderless">
+                                    <tr><td><strong>Task:</strong></td><td><span t-field="o.name"/></td></tr>
+                                    <tr><td><strong>Maintenance Type:</strong></td><td><span t-field="o.maintenance_type"/></td></tr>
+                                    <tr><td><strong>Status:</strong></td><td><span t-field="o.state"/></td></tr>
+                                    <tr><td><strong>Scheduled Date:</strong></td><td><span t-field="o.scheduled_date"/></td></tr>
+                                    <tr><td><strong>Request Date:</strong></td><td><span t-field="o.request_date"/></td></tr>
+                                    <tr><td><strong>Done Date:</strong></td><td><span t-field="o.done_date"/></td></tr>
+                                </table>
+                            </div>
+
+                            <div class="col-6">
+                                <table class="table table-sm table-borderless">
+                                    <tr><td><strong>Asset:</strong></td><td><span t-field="o.asset_id.name"/></td></tr>
+                                    <tr><td><strong>Team:</strong></td><td><span t-field="o.maintenance_team_id.name"/></td></tr>
+                                    <tr><td><strong>Assigned User:</strong></td><td><span t-field="o.assigned_user_id.name"/></td></tr>
+                                </table>
+                            </div>
+                        </div>
+
+                        <h4>Description</h4>
+                        <p t-esc="o.description or 'No description provided'"/>
+
+                        <h4 class="mt-4">Consumed Spare Parts</h4>
+
+                        <t t-if="o.consumed_part_line_ids">
+                            <table class="table table-sm table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th>Product</th>
+                                        <th>Quantity</th>
+                                        <th>Usage Type</th>
+                                        <th>On Hand Qty</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr t-foreach="o.consumed_part_line_ids" t-as="line">
+                                        <td><span t-field="line.product_id.name"/></td>
+                                        <td><span t-field="line.quantity"/></td>
+                                        <td><span t-field="line.usage_type"/></td>
+                                        <td><span t-field="line.on_hand_qty"/></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </t>
+                        <t t-else="">
+                            <p>No spare parts consumed.</p>
+                        </t>
+
+                    </main>
+
+                </t>
+            </t>
+        </t>
+
+    </template>
+
+</odoo>

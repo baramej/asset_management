@@ -1,0 +1,22 @@
+<odoo>
+    <data noupdate="1">
+        <record id="ir_cron_asset_pm_scheduler" model="ir.cron">
+            <field name="name">Asset PM Scheduler</field>
+            <field name="model_id" ref="asset_management.model_asset_maintenance_task"/>
+            <field name="state">code</field>
+            <field name="code">model.cron_generate_contract_pm()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="user_id" ref="base.user_root"/>
+            <field name="active">True</field>
+        </record>
+    </data>
+    <data noupdate="1">
+        <record id="seq_asset_inspection" model="ir.sequence">
+            <field name="name">Asset Inspection</field>
+            <field name="code">asset.inspection</field>
+            <field name="prefix">INSP/%(year)s/</field>
+            <field name="padding">4</field>
+        </record>
+    </data>
+</odoo>

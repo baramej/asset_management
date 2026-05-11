@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="email_template_inspection_material_request" model="mail.template">
+        <field name="name">Asset Inspection: Material Request Notification</field>
+        <field name="model_id" ref="asset_management.model_asset_inspection"/>
+        <field name="subject">⚙ New Material Request – {{ object.name }}</field>
+        <!-- email_to is intentionally omitted — it is set dynamically in _send_material_request_email() -->
+        <field name="body_html" type="html">
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #e0e0e0; border-radius: 6px; overflow: hidden;">
+                <!-- Header -->
+                <div style="background-color: #875A7B; padding: 24px 32px;">
+                    <h2 style="color: #ffffff; margin: 0;">Material Request Pending Approval</h2>
+                </div>
+
+                <!-- Body -->
+                <div style="padding: 24px 32px; background-color: #ffffff;">
+                    <p style="color: #333; font-size: 15px;">
+                        A new material request has been submitted for your approval:
+                    </p>
+
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                        <tr>
+                            <td style="padding: 8px 12px; background: #f5f5f5; font-weight: bold; width: 40%; border: 1px solid #ddd;">Inspection Reference</td>
+                            <td style="padding: 8px 12px; border: 1px solid #ddd;">{{ object.name }}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 12px; background: #f5f5f5; font-weight: bold; border: 1px solid #ddd;">Asset</td>
+                            <td style="padding: 8px 12px; border: 1px solid #ddd;">{{ object.asset_id.name if object.asset_id else 'N/A' }}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 12px; background: #f5f5f5; font-weight: bold; border: 1px solid #ddd;">Scheduled Date</td>
+                            <td style="padding: 8px 12px; border: 1px solid #ddd;">{{ object.scheduled_date }}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 12px; background: #f5f5f5; font-weight: bold; border: 1px solid #ddd;">Maintenance Team</td>
+                            <td style="padding: 8px 12px; border: 1px solid #ddd;">{{ object.maintenance_team_id.name if object.maintenance_team_id else 'N/A' }}</td>
+                        </tr>
+                    </table>
+
+                    <!-- Materials Table -->
+                    <h3 style="color: #875A7B; margin-bottom: 8px;">Requested Materials</h3>
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+                        <thead>
+                            <tr style="background-color: #875A7B; color: white;">
+                                <th style="padding: 8px 12px; text-align: left; border: 1px solid #ddd;">Product</th>
+                                <th style="padding: 8px 12px; text-align: center; border: 1px solid #ddd;">Qty</th>
+                                <th style="padding: 8px 12px; text-align: center; border: 1px solid #ddd;">Unit</th>
+                                <th style="padding: 8px 12px; text-align: center; border: 1px solid #ddd;">Available Stock</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for line in object.material_ids.filtered(lambda l: l.state == 'requested') %}
+                            <tr style="background-color: {{ 'white' if loop.index % 2 == 0 else '#fafafa' }};">
+                                <td style="padding: 8px 12px; border: 1px solid #ddd;">{{ line.product_id.name }}</td>
+                                <td style="padding: 8px 12px; text-align: center; border: 1px solid #ddd;">{{ line.qty_requested }}</td>
+                                <td style="padding: 8px 12px; text-align: center; border: 1px solid #ddd;">{{ line.product_uom_id.name if line.product_uom_id else '' }}</td>
+                                <td style="padding: 8px 12px; text-align: center; border: 1px solid #ddd;
+                                    color: {{ '#d9534f' if line.qty_available == 0 else ('#f0ad4e' if line.qty_available &lt; line.qty_requested else '#5cb85c') }};">
+                                    {{ line.qty_available }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+
+                    <!-- CTA Button -->
+                    <div style="text-align: center; margin: 28px 0;">
+                        <a href="{{ object._get_inspection_url() }}"
+                           style="background-color: #875A7B; color: white; padding: 12px 28px;
+                                  border-radius: 4px; text-decoration: none; font-size: 15px; font-weight: bold;">
+                            Review &amp; Approve Materials
+                        </a>
+                    </div>
+
+                    <p style="color: #888; font-size: 13px; text-align: center;">
+                        You can approve or reject each material line directly on the inspection record.
+                    </p>
+                </div>
+
+                <!-- Footer -->
+                <div style="background-color: #f5f5f5; padding: 14px 32px; text-align: center;">
+                    <p style="color: #aaa; font-size: 12px; margin: 0;">
+                        This is an automated notification from the Asset Management system.
+                    </p>
+                </div>
+            </div>
+        </field>
+        <field name="auto_delete" eval="True"/>
+    </record>
+</odoo>

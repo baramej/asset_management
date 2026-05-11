@@ -1,0 +1,618 @@
+<odoo>
+    <record id="view_asset_maintenance_task_list" model="ir.ui.view">
+        <field name="name">asset.maintenance.task.list</field>
+        <field name="model">asset.maintenance.task</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="asset_id"/>
+                <field name="maintenance_type"/>
+                <field name="scheduled_date"/>
+                <field name="assigned_user_id"/>
+                <field name="state"/>
+                <field name="due_badge" widget="badge"
+                       decoration-success="state == 'done'"
+                       decoration-warning="is_upcoming and state != 'done'"
+                       decoration-danger="is_overdue and state != 'done'"
+                       decoration-info="not is_upcoming and not is_overdue and state != 'done'"
+                />
+            </list>
+        </field>
+    </record>
+
+    <record id="view_asset_maintenance_task_form" model="ir.ui.view">
+        <field name="name">asset.maintenance.task.form</field>
+        <field name="model">asset.maintenance.task</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_start"
+                            string="Start"
+                            type="object"
+                            class="btn-primary"
+                            invisible="state not in ['draft','cancel']"/>
+                    <button name="action_done"
+                            string="Mark Done"
+                            type="object"
+                            class="btn-success"
+                            invisible="state not in ['in_progress']"/>
+                    <button name="action_set_to_draft"
+                            string="Reset to Draft"
+                            type="object"
+                            class="btn-secondary"
+                            invisible="state not in ['done']"/>
+                    <button name="action_cancel"
+                            string="Cancel"
+                            type="object"
+                            class="btn-danger"
+                            invisible="state not in ['draft','in_progress']"/>
+                    <button name="action_create_job_order"
+                            string="Create Job Order"
+                            type="object"
+                            class="btn-warning"
+                            invisible="state != 'in_progress' or job_order_id != False"/>
+                    <field name="state"
+                           widget="statusbar"
+                           statusbar_visible="draft,in_progress,done,cancel"/>
+                </header>
+
+                <sheet>
+                    <!-- ── Smart Buttons ── -->
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_inspection"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-search"
+                                invisible="inspection_id == False">
+                            <div class="o_field_widget o_stat_info">
+                                <span class="o_stat_value">
+                                    <field name="inspection_count"/>
+                                </span>
+                                <span class="o_stat_text">Inspection</span>
+                            </div>
+                        </button>
+                        <button name="action_view_job_order"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-file-text-o"
+                                invisible="job_order_id == False">
+                            <div class="o_field_widget o_stat_info">
+                                <span class="o_stat_value">
+                                    <field name="job_order_count"/>
+                                </span>
+                                <span class="o_stat_text">Job Order</span>
+                            </div>
+                        </button>
+                        <button type="object"
+                                name="action_open_delivery_orders"
+                                class="oe_stat_button"
+                                icon="fa-truck">
+                            <field name="picking_ids" widget="statinfo" string="Deliveries"/>
+                        </button>
+                    </div>
+
+                    <!-- ── Title ── -->
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1>
+                            <field name="name" placeholder="Task name..."/>
+                        </h1>
+                    </div>
+
+                    <!-- ── Section 1: Core Details ── -->
+                    <group string="Task Details">
+                        <group>
+                            <field name="asset_id"/>
+                            <field name="maintenance_type"/>
+                            <field name="service_type"
+                                   invisible="maintenance_type == 'preventive'"/>
+                            <field name="is_emergency"
+                                   widget="boolean_toggle"/>
+                        </group>
+                        <group>
+                            <field name="scheduled_date"/>
+                            <field name="request_date" readonly="1"/>
+                            <field name="done_date" readonly="1"/>
+                            <field name="due_badge" widget="badge"
+                                   decoration-success="state == 'done'"
+                                   decoration-warning="is_upcoming and state != 'done'"
+                                   decoration-danger="is_overdue and state != 'done'"
+                                   decoration-info="not is_upcoming and not is_overdue and state != 'done'"/>
+                        </group>
+                    </group>
+
+                    <!-- ── Section 2: Assignment & Billing ── -->
+                    <group string="Assignment &amp; Billing">
+                        <group>
+                            <field name="maintenance_team_id"/>
+                            <field name="assigned_user_id" widget="many2one_avatar_user"/>
+                            <div colspan="2" invisible="not maintenance_team_id">
+                                <button name="action_view_team_schedule"
+                                        string="View Team Schedule"
+                                        type="object"
+                                        class="btn-secondary btn-sm"
+                                        icon="fa-calendar"/>
+                            </div>
+                        </group>
+                        <group>
+                            <field name="billing_entity_id"
+                                   options="{'no_create': True}"
+                                   placeholder="Auto-filled from asset..."/>
+                            <field name="contract_id" readonly="1"
+                                   invisible="not contract_id"/>
+                            <field name="is_free" widget="boolean_toggle"/>
+                        </group>
+                    </group>
+
+                    <!-- ── Section 3: Linked Records ── -->
+                    <group string="Linked Records"
+                           invisible="helpdesk_ticket_id == False and inspection_id == False">
+                        <group>
+                            <field name="helpdesk_ticket_id"
+                                   readonly="1"
+                                   invisible="helpdesk_ticket_id == False"/>
+                            <field name="inspection_id"
+                                   readonly="1"
+                                   invisible="inspection_id == False"/>
+                        </group>
+                    </group>
+
+                    <!-- ── Section 4: Supervisor Sign-off ── -->
+                    <group string="Supervisor Sign-off"
+                           invisible="not requires_supervisor_signoff">
+                        <group>
+                            <field name="requires_supervisor_signoff" widget="boolean_toggle"/>
+                            <field name="supervisor_signoff_state" widget="badge"
+                                   decoration-success="supervisor_signoff_state == 'approved'"
+                                   decoration-warning="supervisor_signoff_state == 'pending'"
+                                   decoration-danger="supervisor_signoff_state == 'rejected'"
+                                   decoration-muted="supervisor_signoff_state == 'not_required'"/>
+                        </group>
+                        <group>
+                            <field name="supervisor_signoff_by" readonly="1"
+                                   invisible="not supervisor_signoff_by"/>
+                            <field name="supervisor_signoff_date" readonly="1"
+                                   invisible="not supervisor_signoff_date"/>
+                        </group>
+                        <group colspan="2">
+                            <field name="supervisor_signoff_note"
+                                   placeholder="Sign-off notes..."
+                                   invisible="not requires_supervisor_signoff"/>
+                        </group>
+                        <div colspan="2" invisible="supervisor_signoff_state not in ('not_required', 'rejected')">
+                            <button name="action_request_supervisor_signoff"
+                                    string="Request Sign-off"
+                                    type="object"
+                                    class="btn-secondary btn-sm"
+                                    icon="fa-paper-plane"/>
+                        </div>
+                        <div colspan="2" invisible="supervisor_signoff_state != 'pending'"
+                             groups="asset_management.group_asset_supervisor">
+                            <button name="action_supervisor_approve_signoff"
+                                    string="Approve Sign-off"
+                                    type="object"
+                                    class="btn-success btn-sm"
+                                    icon="fa-check"/>
+                            <button name="action_supervisor_reject_signoff"
+                                    string="Reject Sign-off"
+                                    type="object"
+                                    class="btn-danger btn-sm"
+                                    icon="fa-times"/>
+                        </div>
+                    </group>
+
+                    <!-- ── Notebook ── -->
+                    <notebook>
+
+                        <page string="Checklist" name="checklist">
+                            <group>
+                                <field name="checklist_progress"
+                                       widget="progressbar"
+                                       options="{'editable': false}"/>
+                            </group>
+                            <field name="checklist_line_ids">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="description"/>
+                                    <field name="is_mandatory" widget="boolean_toggle"/>
+                                    <field name="is_done" widget="boolean_toggle"/>
+                                    <field name="notes" optional="show"/>
+                                </list>
+                            </field>
+                        </page>
+
+                        <page string="Findings" name="task_findings">
+                            <field name="task_finding_ids">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="is_from_inspection"
+                                           readonly="1"
+                                           widget="boolean_toggle"
+                                           optional="show"/>
+                                    <field name="description" required="1"/>
+                                    <field name="severity"
+                                           widget="badge"
+                                           decoration-danger="severity == 'critical'"
+                                           decoration-warning="severity == 'high'"
+                                           decoration-info="severity == 'medium'"
+                                           decoration-secondary="severity == 'low'"/>
+                                    <field name="notes" optional="show"/>
+                                </list>
+                                <form>
+                                    <group>
+                                        <group>
+                                            <field name="description"/>
+                                            <field name="severity"/>
+                                            <field name="is_from_inspection" readonly="1"/>
+                                            <field name="notes"/>
+                                        </group>
+                                    </group>
+                                    <group string="Photos">
+                                        <field name="image_1" widget="image"
+                                               options="{'size': [300,300]}"/>
+                                        <field name="image_2" widget="image"
+                                               options="{'size': [300,300]}"/>
+                                        <field name="image_3" widget="image"
+                                               options="{'size': [300,300]}"/>
+                                    </group>
+                                </form>
+                            </field>
+                        </page>
+
+                        <page string="Materials Required" name="task_materials">
+                            <group>
+                                <field name="material_approval_state"
+                                       widget="badge"
+                                       decoration-success="material_approval_state == 'approved'"
+                                       decoration-warning="material_approval_state == 'pending'"
+                                       decoration-danger="material_approval_state == 'rejected'"
+                                       decoration-muted="material_approval_state == 'not_requested'"/>
+                                <field name="material_approved_by" readonly="1"
+                                       invisible="not material_approved_by"/>
+                                <field name="material_approved_date" readonly="1"
+                                       invisible="not material_approved_date"/>
+                            </group>
+                            <field name="planned_material_ids">
+                                <list editable="bottom">
+                                    <field name="product_id"/>
+                                    <field name="description"/>
+                                    <field name="quantity"/>
+                                    <field name="uom_id" readonly="1"/>
+                                    <field name="on_hand_qty" readonly="1"/>
+                                    <field name="source" readonly="1" optional="show"/>
+                                </list>
+                            </field>
+                            <div class="mt-2">
+                                <button name="action_request_material_approval"
+                                        string="Request Material Approval"
+                                        type="object"
+                                        class="btn-secondary btn-sm"
+                                        icon="fa-paper-plane"
+                                        invisible="material_approval_state not in ('not_requested', 'rejected')"/>
+                                <button name="action_approve_materials"
+                                        string="Approve Materials"
+                                        type="object"
+                                        class="btn-success btn-sm"
+                                        icon="fa-check"
+                                        invisible="material_approval_state != 'pending'"
+                                        groups="asset_management.group_asset_supervisor"/>
+                                <button name="action_reject_materials"
+                                        string="Reject Materials"
+                                        type="object"
+                                        class="btn-danger btn-sm"
+                                        icon="fa-times"
+                                        invisible="material_approval_state != 'pending'"
+                                        groups="asset_management.group_asset_supervisor"/>
+                            </div>
+                        </page>
+
+                        <page string="Labour Plan" name="task_labour">
+                            <group>
+                                <group>
+                                    <field name="planned_hours"/>
+                                    <field name="actual_hours" readonly="1"/>
+                                </group>
+                            </group>
+                            <field name="planned_labour_ids">
+                                <list editable="bottom">
+                                    <field name="user_id" widget="many2one_avatar_user"/>
+                                    <field name="role"/>
+                                    <field name="planned_hours"/>
+                                    <field name="notes"/>
+                                </list>
+                            </field>
+                        </page>
+
+                        <page string="Consumed Parts" name="consumed_parts">
+                            <field name="consumed_part_line_ids">
+                                <list editable="bottom">
+                                    <field name="product_id"/>
+                                    <field name="quantity"/>
+                                    <field name="usage_type"/>
+                                    <field name="on_hand_qty" readonly="1"/>
+                                </list>
+                            </field>
+                        </page>
+
+                        <page string="Notes" name="description_notes">
+                            <group string="Task Description">
+                                <field name="description" nolabel="1"
+                                       placeholder="Describe the maintenance work required..."/>
+                            </group>
+                            <group string="Supervisor Notes"
+                                   groups="asset_management.group_asset_supervisor">
+                                <field name="supervisor_notes" nolabel="1"
+                                       placeholder="Internal supervisor notes..."/>
+                            </group>
+                        </page>
+
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_asset_maintenance_contract_list" model="ir.ui.view">
+        <field name="name">asset.maintenance.contract.list</field>
+        <field name="model">asset.maintenance.contract</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="customer_id"/>
+                <field name="contract_type"/>
+                <field name="start_date"/>
+                <field name="end_date"/>
+                <field name="is_active"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_asset_maintenance_contract_form" model="ir.ui.view">
+        <field name="name">asset.maintenance.contract.form</field>
+        <field name="model">asset.maintenance.contract</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="customer_id"/>
+                    </group>
+
+                    <group>
+                        <field name="start_date"/>
+                        <field name="end_date"/>
+                        <field name="contract_type"/>
+                        <field name="is_active"/>
+                    </group>
+
+                    <group>
+                        <field name="visits_per_year"/>
+                        <field name="pm_frequency_days"/>
+                        <field name="free_period_months"/>
+                        <field name="free_parts"/>
+                    </group>
+
+                    <group>
+                        <field name="price_list_id"/>
+                    </group>
+
+                    <notebook>
+                        <page string="Assets Under Contract">
+                            <field name="contract_line_ids">
+                                <list editable="bottom">
+                                    <field name="asset_id"/>
+                                    <field name="next_pm_date"/>
+                                    <field name="remaining_visits"/>
+                                    <field name="remaining_free_parts_value"/>
+
+                                    <button name="action_open_spare_part_wizard"
+                                            type="object"
+                                            string="Spare Parts"
+                                            class="btn-primary"
+                                            icon="fa-cogs"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_asset_maintenance_team_list" model="ir.ui.view">
+        <field name="name">asset.maintenance.team.list</field>
+        <field name="model">asset.maintenance.team</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="team_leader_id" widget="many2one_avatar_user"/>
+                <field name="active_tasks"/>
+                <field name="availability_rate"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_asset_maintenance_team_form" model="ir.ui.view">
+        <field name="name">asset.maintenance.team.form</field>
+        <field name="model">asset.maintenance.team</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="team_leader_id" widget="many2one_avatar_user"/>
+                            <field name="color"/>
+                        </group>
+                        <group>
+                            <field name="max_capacity"/>
+                            <field name="active_tasks" readonly="1"/>
+                            <field name="availability_rate" readonly="1"/>
+                        </group>
+                    </group>
+
+                    <group string="Team Members">
+                        <field name="member_ids" widget="many2many_tags"/>
+                    </group>
+
+                    <group>
+                        <field name="skill_set"/>
+                    </group>
+
+                    <notebook>
+                        <page string="Assigned Tasks">
+                            <field name="task_ids">
+                                <list>
+                                    <field name="name"/>
+                                    <field name="asset_id"/>
+                                    <field name="state"/>
+                                </list>
+                            </field>
+                        </page>
+
+                        <page string="Chatter">
+                            <field name="message_ids" widget="mail_thread"/>
+                        </page>
+                    </notebook>
+
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_asset_maintenance_contract_line_form" model="ir.ui.view">
+        <field name="name">asset.maintenance.contract.line.form</field>
+        <field name="model">asset.maintenance.contract.line</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_open_spare_part_wizard"
+                            type="object"
+                            string="Add Spare Parts"
+                            class="btn-primary"
+                            icon="fa-cogs"/>
+                </header>
+
+                <sheet>
+                    <group>
+                        <field name="asset_id"/>
+                        <field name="next_pm_date"/>
+                        <field name="remaining_visits"/>
+                        <field name="remaining_free_parts_value"/>
+                    </group>
+
+                    <notebook>
+                        <page string="Spare Parts">
+                            <field name="spare_part_ids">
+                                <list editable="bottom">
+                                    <field name="product_id"/>
+                                    <field name="min_qty"/>
+                                    <field name="qty_per_maintenance"/>
+                                    <field name="stock_qty" readonly="1"/>
+                                    <field name="consumed_qty" readonly="1"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+
+    <record id="view_asset_contract_spare_part_wizard" model="ir.ui.view">
+        <field name="name">asset.contract.spare.part.wizard.form</field>
+        <field name="model">asset.contract.spare.part.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Spare Parts">
+                <group>
+                    <field name="contract_line_id" invisible="1"/>
+                </group>
+
+                <group>
+                    <field name="spare_part_ids">
+                        <list editable="bottom">
+                            <field name="product_id"/>
+                            <field name="min_qty"/>
+                            <field name="qty_per_maintenance"/>
+                            <field name="usage_type"/>
+                        </list>
+                    </field>
+                </group>
+
+                <footer>
+                    <button string="Save" type="object" name="action_save" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_asset_maintenance_task_search" model="ir.ui.view">
+        <field name="name">asset.maintenance.task.search</field>
+        <field name="model">asset.maintenance.task</field>
+        <field name="arch" type="xml">
+            <search string="Search Maintenance Tasks">
+
+                <field name="name"/>
+                <field name="asset_id"/>
+                <field name="assigned_user_id"/>
+                <field name="maintenance_type"/>
+
+                <filter string="Draft" name="flt_draft" domain="[('state','=','draft')]"/>
+                <filter string="In Progress" name="flt_in_progress" domain="[('state','=','in_progress')]"/>
+                <filter string="Done" name="flt_done" domain="[('state','=','done')]"/>
+                <filter string="Cancelled" name="flt_cancel" domain="[('state','=','cancel')]"/>
+
+                <separator/>
+
+                <filter string="Group by Asset" name="grp_asset" context="{'group_by':'asset_id'}"/>
+                <filter string="Group by Type" name="grp_type" context="{'group_by':'maintenance_type'}"/>
+                <filter string="Group by Assigned User" name="grp_user" context="{'group_by':'assigned_user_id'}"/>
+                <filter string="Group by State" name="grp_state" context="{'group_by':'state'}"/>
+
+                <separator/>
+
+                <searchpanel>
+                    <field name="asset_id" icon="fa-cube" select="multi"/>
+                    <field name="assigned_user_id" icon="fa-user" select="multi"/>
+                    <field name="maintenance_type" icon="fa-wrench" select="multi"/>
+                    <field name="state" icon="fa-flag" select="multi"/>
+                </searchpanel>
+
+            </search>
+        </field>
+    </record>
+
+    <record id="view_asset_maintenance_team_search" model="ir.ui.view">
+        <field name="name">asset.maintenance.team.search</field>
+        <field name="model">asset.maintenance.team</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="team_leader_id"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_asset_maintenance_team" model="ir.actions.act_window">
+        <field name="name">Maintenance Teams</field>
+        <field name="res_model">asset.maintenance.team</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_asset_maintenance_team_search"/>
+    </record>
+
+    <record id="action_asset_maintenance_contract" model="ir.actions.act_window">
+        <field name="name">Maintenance Contracts</field>
+        <field name="res_model">asset.maintenance.contract</field>
+        <field name="view_mode">list,form</field>
+    </record>
+    <record id="action_asset_maintenance_task" model="ir.actions.act_window">
+        <field name="name">Maintenance Tasks</field>
+        <field name="res_model">asset.maintenance.task</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_asset_maintenance_task_search"/>
+    </record>
+</odoo>
