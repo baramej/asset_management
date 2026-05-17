@@ -26,6 +26,13 @@
               parent="menu_asset_mgmt_root"
               sequence="30"/>
 
+    <menuitem
+            id="menu_helpdesk_inspections"
+            name="Inspections"
+            parent="menu_asset_mgmt_root"
+            action="action_asset_inspection"
+            sequence="40"/>
+
     <menuitem id="menu_asset_mgmt_tasks"
               name="Maintenance Tasks"
               parent="menu_asset_mgmt_maintenance"
@@ -39,12 +46,10 @@
               sequence="2"/>
 
     <menuitem id="menu_asset_pm_schedules_maintenance"
-          name="PM Schedules"
-          parent="menu_asset_mgmt_maintenance"
-          action="action_asset_pm_schedule"
-          sequence="5"/>
-
-    <!-- Maintenance Tasks -->
+              name="PM Schedules"
+              parent="menu_asset_mgmt_maintenance"
+              action="action_asset_pm_schedule"
+              sequence="5"/>
 
 
     <menuitem id="menu_asset_mgmt_maintenance_teams"
@@ -55,15 +60,15 @@
 
     <menuitem id="menu_asset_mgmt_job_orders"
               name="Job Orders"
-              parent="menu_asset_mgmt_maintenance"
+              parent="menu_asset_mgmt_root"
               action="action_asset_job_order"
-              sequence="4"/>
+              sequence="50"/>
 
     <!-- Parent: Asset Tagging -->
     <menuitem id="menu_asset_mgmt_tagging"
               name="Asset Tagging"
               parent="menu_asset_mgmt_root"
-              sequence="50"/>
+              sequence="20"/>
 
     <!-- Child: Tagging form (your existing action) -->
     <menuitem id="menu_asset_mgmt_tagging_tag"
@@ -91,7 +96,7 @@
     <menuitem id="menu_asset_mgmt_config"
               name="Configuration"
               parent="menu_asset_mgmt_root"
-              sequence="50"/>
+              sequence="60"/>
 
     <!-- Checklist Templates -->
     <menuitem id="menu_asset_checklist_templates"
@@ -146,20 +151,5 @@
               parent="menu_asset_mgmt_config"
               action="action_asset_location"
               sequence="20"/>
-
-    <record id="action_asset_helpdesk_tickets" model="ir.actions.act_window">
-        <field name="name">Helpdesk Tickets</field>
-        <field name="res_model">helpdesk.ticket</field>
-        <field name="view_mode">list,form</field>
-        <!-- OPTIONAL: فلترة لإظهار التذاكر المرتبطة فقط بموجودات CAFM -->
-        <field name="domain">[("asset_id","!=",False)]</field>
-    </record>
-
-    <menuitem id="menu_asset_mgmt_helpdesk_tickets"
-              name="Helpdesk Tickets"
-              parent="menu_asset_mgmt_root"
-              action="action_asset_helpdesk_tickets"
-              sequence="40"/>
-
 
 </odoo>

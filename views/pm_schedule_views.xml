@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <!-- ================================================================
-         CHECKLIST TEMPLATE
-    ================================================================ -->
+
     <record id="view_asset_checklist_template_list" model="ir.ui.view">
         <field name="name">asset.checklist.template.list</field>
         <field name="model">asset.checklist.template</field>
@@ -50,10 +48,6 @@
         <field name="view_mode">list,form</field>
     </record>
 
-
-    <!-- ================================================================
-         PM SCHEDULE  — standalone list/form
-    ================================================================ -->
     <record id="view_asset_pm_schedule_list" model="ir.ui.view">
         <field name="name">asset.pm.schedule.list</field>
         <field name="model">asset.pm.schedule</field>
@@ -108,27 +102,21 @@
     </record>
 
 
-    <!-- ================================================================
-         PM SCHEDULES  — embedded tab on account.asset form
-    ================================================================ -->
     <record id="view_asset_pm_schedules_inline" model="ir.ui.view">
         <field name="name">account.asset.form.pm_schedules</field>
         <field name="model">account.asset</field>
         <field name="inherit_id" ref="account_asset.view_account_asset_form"/>
         <field name="arch" type="xml">
 
-            <!-- Hide the old single pm_frequency_days field (replaced by pm_schedule_ids tab) -->
             <xpath expr="//field[@name='pm_frequency_days']" position="attributes">
                 <attribute name="invisible">1</attribute>
             </xpath>
 
-            <!-- Show next_pm_date as read-only computed summary -->
             <xpath expr="//field[@name='next_pm_date']" position="attributes">
                 <attribute name="readonly">1</attribute>
                 <attribute name="string">Next Due (earliest)</attribute>
             </xpath>
 
-            <!-- Add PM Schedules tab inside notebook -->
             <xpath expr="//notebook" position="inside">
                 <page string="PM / Service Schedules" name="pm_schedules">
                     <field name="pm_schedule_ids">
@@ -174,22 +162,17 @@
     </record>
 
 
-    <!-- ================================================================
-         MAINTENANCE TASK  — extend existing form
-    ================================================================ -->
     <record id="view_asset_maintenance_task_form_ext" model="ir.ui.view">
         <field name="name">asset.maintenance.task.form.ext</field>
         <field name="model">asset.maintenance.task</field>
         <field name="inherit_id" ref="asset_management.view_asset_maintenance_task_form"/>
         <field name="arch" type="xml">
 
-            <!-- pm_schedule_id near maintenance_type (not already in base form) -->
             <xpath expr="//field[@name='is_emergency']" position="after">
                 <field name="pm_schedule_id" readonly="1"
                        invisible="pm_schedule_id == False"/>
             </xpath>
 
-            <!-- Supervisor sign-off alert banner -->
             <xpath expr="//sheet" position="before">
                 <div class="alert alert-warning"
                      role="alert"
@@ -218,8 +201,7 @@
                 </div>
             </xpath>
 
-            <!-- Request Sign-off header button -->
-            <xpath expr="//button[@name='action_done']" position="before">
+            <xpath expr="//button[@name='action_set_to_draft']" position="before">
                 <button name="action_request_supervisor_signoff"
                         string="Request Sign-off"
                         type="object"
@@ -227,7 +209,6 @@
                         invisible="not requires_supervisor_signoff or supervisor_signoff_state in ['pending','approved']"/>
             </xpath>
 
-            <!-- Extend checklist tab to add done_by_id and done_date columns -->
             <xpath expr="//page[@name='checklist']//field[@name='checklist_line_ids']//list//field[@name='notes']"
                    position="before">
                 <field name="done_by_id" readonly="1"
@@ -236,7 +217,6 @@
                 <field name="done_date" readonly="1" optional="show"/>
             </xpath>
 
-            <!-- Sign-off detail tab after description_notes -->
             <xpath expr="//page[@name='description_notes']" position="after">
                 <page string="Sign-off"
                       name="signoff"
@@ -256,9 +236,6 @@
     </record>
 
 
-    <!-- ================================================================
-         CRON JOB
-    ================================================================ -->
     <record id="ir_cron_pm_tasks_multi" model="ir.cron">
         <field name="name">Asset: Generate PM / Service Tasks (Multi-Schedule)</field>
         <field name="model_id" ref="account_asset.model_account_asset"/>
@@ -279,8 +256,6 @@
     <!--            <field name="active">True</field>-->
     <!--        </record>-->
 
-    <!-- Disable the old single-frequency cron to avoid double-firing -->
-    <!-- Uncomment this once you have migrated all assets to pm_schedule_ids -->
     <!--
     <record id="ir_cron_generate_pm_tasks" model="ir.cron">
         <field name="active">False</field>

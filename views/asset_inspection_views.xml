@@ -36,7 +36,7 @@
                             string="Create Maintenance Task"
                             type="object"
                             class="btn-warning"
-                            invisible="state != 'completed'
+                            invisible="state != 'escalated'
                        or not escalation_required
                        or maintenance_task_id != False"/>
                     <!--                    <button name="action_create_maintenance"-->
@@ -54,7 +54,7 @@
                             icon="fa-print"/>
                     <field name="state"
                            widget="statusbar"
-                           statusbar_visible="new,scheduled,request_material,material_collected,in_progress,completed"/>
+                           statusbar_visible="new,scheduled,request_material,material_collected,in_progress,completed,escalated"/>
                 </header>
                 <sheet>
                     <div class="oe_button_box" name="button_box">
@@ -149,7 +149,6 @@
 
                     <notebook>
 
-                        <!-- FINDINGS TAB -->
                         <page string="Findings" name="findings">
                             <field name="finding_ids">
                                 <list editable="bottom">
@@ -180,8 +179,6 @@
                             </field>
                         </page>
 
-                        <!-- PARTS TAB -->
-                        <!-- PARTS TAB -->
                         <page string="Parts &amp; Materials" name="parts">
                             <field name="material_ids">
                                 <list editable="bottom">
@@ -203,7 +200,7 @@
                                     <field name="qty_requested"
                                            readonly="state != 'requested'"/>
                                     <field name="qty_consumed"
-                                           invisible="state not in ('consumed', 'collected')"/>
+                                           invisible="state not in ('consumed', 'collected', 'pending_return', 'returned')"/>
                                     <field name="state"
                                            widget="badge"
                                            decoration-info="state == 'requested'"
@@ -260,7 +257,6 @@
                             </group>
                         </page>
 
-                        <!-- NOTES TAB -->
                         <page string="Notes" name="notes">
                             <field name="notes"
                                    placeholder="General inspection notes..."/>
@@ -273,7 +269,6 @@
         </field>
     </record>
 
-    <!-- List view -->
     <record id="view_asset_inspection_list" model="ir.ui.view">
         <field name="name">asset.inspection.list</field>
         <field name="model">asset.inspection</field>
@@ -281,6 +276,7 @@
             <list string="Inspections"
                   decoration-muted="state == 'cancelled'"
                   decoration-success="state == 'completed'"
+                  decoration-danger="state == 'escalated'"
                   decoration-warning="state == 'in_progress'">
                 <field name="name"/>
                 <field name="asset_id"/>
@@ -294,7 +290,6 @@
         </field>
     </record>
 
-    <!-- Kanban view -->
     <record id="view_asset_inspection_kanban" model="ir.ui.view">
         <field name="name">asset.inspection.kanban</field>
         <field name="model">asset.inspection</field>
@@ -351,7 +346,6 @@
         <field name="inherit_id" ref="asset_management.view_asset_inspection_form"/>
         <field name="arch" type="xml">
 
-            <!-- Add qty_reserved + picking_id columns to the materials list -->
             <xpath expr="//field[@name='material_ids']//list//field[@name='qty_consumed']"
                    position="before">
 
@@ -369,7 +363,6 @@
 
             </xpath>
 
-            <!-- Add "Return Unused" button for collected lines (inspector/storekeeper use) -->
             <xpath expr="//field[@name='material_ids']//list//button[@name='action_reject']"
                    position="after">
 
@@ -405,13 +398,6 @@
         </field>
     </record>
 
-    <!-- Helpdesk menu -->
-    <menuitem
-            id="menu_helpdesk_inspections"
-            name="Inspections"
-            parent="helpdesk.menu_helpdesk_root"
-            action="action_asset_inspection"
-            sequence="20"/>
 
     <record id="action_asset_inspection_pending_returns" model="ir.actions.act_window">
         <field name="name">Pending Returns</field>
@@ -424,13 +410,12 @@
             <p>Inspections with equipment awaiting return to store will appear here.</p>
         </field>
     </record>
-
-    <!-- Menu item under Helpdesk -->
     <menuitem
             id="menu_helpdesk_inspection_pending_returns"
             name="Pending Returns"
-            parent="helpdesk.menu_helpdesk_root"
+            parent="stock.menu_stock_root"
             action="action_asset_inspection_pending_returns"
             sequence="21"/>
+
 
 </odoo>

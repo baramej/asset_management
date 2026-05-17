@@ -1,10 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <!-- ══════════════════════════════════════════════════════════════════
-         CHECKLIST TEMPLATE — form & list
-    ══════════════════════════════════════════════════════════════════ -->
-
     <record id="view_flat_checklist_template_form" model="ir.ui.view">
         <field name="name">asset.flat.checklist.template.form</field>
         <field name="model">asset.flat.checklist.template</field>
@@ -109,26 +105,19 @@
     </record>
 
 
-    <!-- ══════════════════════════════════════════════════════════════════
-         INSPECTION FORM — inherit to add type + flat checklist tab
-    ══════════════════════════════════════════════════════════════════ -->
-
     <record id="view_asset_inspection_form_flat_inherit" model="ir.ui.view">
         <field name="name">asset.inspection.form.flat</field>
         <field name="model">asset.inspection</field>
         <field name="inherit_id" ref="asset_management.view_asset_inspection_form"/>
         <field name="arch" type="xml">
 
-            <!-- Hide Request Material button for flat inspections -->
             <button name="action_request_material" position="attributes">
                 <attribute name="invisible">state != 'scheduled' or inspection_type == 'flat'</attribute>
             </button>
-            <!-- Hide Material Collected button for flat inspections -->
             <button name="action_material_collected" position="attributes">
                 <attribute name="invisible">state != 'request_material' or inspection_type == 'flat'</attribute>
             </button>
 
-            <!-- Flat details group after title -->
             <xpath expr="//div[hasclass('oe_title')]" position="after">
                 <field name="inspection_type" invisible="1"/>
                 <field name="checklist_total" invisible="1"/>
@@ -158,7 +147,6 @@
                 </group>
             </xpath>
 
-            <!-- Add Flat Checklist tab -->
             <xpath expr="//notebook" position="inside">
                 <page string="Flat Checklist" name="flat_checklist"
                       invisible="inspection_type != 'flat'">
@@ -221,7 +209,6 @@
                         </page>
                     </notebook>
 
-                    <!-- Sign-off at the bottom of the checklist page -->
                     <separator string="Sign-off"/>
                     <group>
                         <group>
@@ -236,12 +223,10 @@
                 </page>
             </xpath>
 
-            <!-- Hide Findings tab for flat inspections -->
             <page name="findings" position="attributes">
                 <attribute name="invisible">inspection_type == 'flat'</attribute>
             </page>
 
-            <!-- Hide Parts & Materials tab for flat inspections -->
             <page name="parts" position="attributes">
                 <attribute name="invisible">inspection_type == 'flat'</attribute>
             </page>
@@ -249,24 +234,18 @@
     </record>
 
 
-    <!-- ══════════════════════════════════════════════════════════════════
-         WIZARD — inherit to add inspection type + flat fields
-    ══════════════════════════════════════════════════════════════════ -->
-
     <record id="view_asset_inspection_wizard_flat_inherit" model="ir.ui.view">
         <field name="name">asset.inspection.wizard.form.flat</field>
         <field name="model">asset.inspection.wizard</field>
         <field name="inherit_id" ref="asset_management.view_asset_inspection_wizard_form"/>
         <field name="arch" type="xml">
 
-            <!-- Insert type selector at the very top of the sheet -->
             <xpath expr="//sheet/group[1]" position="before">
                 <group string="Inspection Type">
                     <field name="inspection_type" widget="radio" required="1"/>
                 </group>
             </xpath>
 
-            <!-- Flat-specific fields — shown only when type = flat -->
             <xpath expr="//sheet/group[1]" position="after">
                 <group string="Flat Details" invisible="inspection_type != 'flat'">
                     <group>
@@ -285,12 +264,6 @@
         </field>
     </record>
 
-
-    <!-- ══════════════════════════════════════════════════════════════════
-         MENU — Checklist Templates under Configuration
-    ══════════════════════════════════════════════════════════════════ -->
-
-    <!-- Assumes your module has a configuration menu; adjust parent as needed -->
     <menuitem
             id="menu_flat_checklist_templates"
             name="Flat Checklist Templates"

@@ -12,14 +12,12 @@ class AssetInspectionCompleteWizard(models.TransientModel):
         readonly=True,
     )
 
-    # ── Parts consumption lines ──────────────────────────────────────────
     line_ids = fields.One2many(
         "asset.inspection.complete.wizard.line",
         "wizard_id",
         string="Materials",
     )
 
-    # ── Escalation decision ──────────────────────────────────────────────
     escalation_required = fields.Selection(
         [
             ("no", "No — Issue resolved during inspection"),
@@ -44,11 +42,13 @@ class AssetInspectionCompleteWizard(models.TransientModel):
         compute="_compute_has_non_consumables",
     )
 
-    @api.depends("line_ids.is_consumable")
+    @api.depends("line_ids.is_consumable", "line_ids.qty_consumed", "line_ids.qty_requested")
     def _compute_has_non_consumables(self):
         for rec in self:
             rec.has_non_consumables = any(
-                not l.is_consumable for l in rec.line_ids
+                not l.is_consumable
+                or (l.is_consumable and l.qty_consumed < l.qty_requested)
+                for l in rec.line_ids
             )
 
     @api.model
@@ -64,12 +64,9 @@ class AssetInspectionCompleteWizard(models.TransientModel):
                 lambda m: m.state in ("collected", "approved")
         ):
             if mat.is_consumable:
-                # Consumable: default to consumed with full qty
                 consumption_state = "consumed"
                 qty_consumed = mat.qty_requested
             else:
-                # Non-consumable: shown for info only, wizard won't set its final state.
-                # User can see it but state will be set to pending_return by _do_complete.
                 consumption_state = "pending_return"
                 qty_consumed = 0.0
 
@@ -96,7 +93,6 @@ class AssetInspectionCompleteWizard(models.TransientModel):
         self.ensure_one()
         inspection = self.inspection_id
 
-        # ── 1. Update material consumption ──────────────────────────────
         for line in self.line_ids:
             target = line.material_id
 
@@ -110,28 +106,28 @@ class AssetInspectionCompleteWizard(models.TransientModel):
                 continue
 
             if not line.is_consumable:
-                # Non-consumables: only update qty_consumed (if any),
-                # leave state as "collected" so _do_complete can flag pending_return.
-                # Do NOT write consumption_state here.
                 target.write({"qty_consumed": line.qty_consumed})
             else:
-                # Consumables: write both qty and final state normally
-                target.write({
-                    "qty_consumed": line.qty_consumed,
-                    "state": line.consumption_state,
-                })
+                # If partially consumed, flag remainder for return
+                if line.consumption_state == "consumed" and line.qty_consumed < line.qty_requested:
+                    target.write({
+                        "qty_consumed": line.qty_consumed,
+                        "state": "pending_return",
+                    })
+                else:
+                    target.write({
+                        "qty_consumed": line.qty_consumed,
+                        "state": line.consumption_state,
+                    })
 
-        # ── 2. Write escalation result onto inspection ───────────────────
         inspection.write({
             "escalation_required": self.escalation_required == "yes",
             "resolution_notes": self.resolution_notes or "",
             "escalation_notes": self.escalation_notes or "",
         })
 
-        # ── 3. Complete the inspection (handles pending_return flagging) ─
         inspection._do_complete()
 
-        # ── 4. Reload the inspection form ────────────────────────────────
         return {
             "type": "ir.actions.act_window",
             "res_model": "asset.inspection",
@@ -178,7 +174,6 @@ class AssetInspectionCompleteWizardLine(models.TransientModel):
 
     @api.onchange("consumption_state")
     def _onchange_consumption_state(self):
-        """If marked returned, zero out consumed qty automatically."""
         if self.consumption_state == "returned":
             self.qty_consumed = 0.0
         elif self.consumption_state == "consumed" and self.qty_consumed == 0.0:

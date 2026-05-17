@@ -36,10 +36,9 @@
                     <div class="alert alert-info" role="alert"
                          invisible="not has_non_consumables">
                         <i class="fa fa-info-circle"/>
-                        Non-consumable equipment
-                        (shown with <b>Pending Return</b> status) will be automatically
-                        flagged for return to the store after completion.
-                        The Storekeeper will be notified by email.
+                        Items marked as <b>Pending Return</b> — including non-consumable equipment
+                        and partially consumed materials — will be flagged for return to the store
+                        after completion. The Storekeeper will be notified by email.
                     </div>
                 </group>
 

@@ -3,11 +3,6 @@ from odoo.exceptions import UserError
 
 
 class AssetFlatChecklistTemplate(models.Model):
-    """
-    Master checklist template per flat/location type.
-    e.g. "SBR-1 (3 BHK)", "SBR-2", "Regency-1" …
-    Admins create/edit these; they are copied onto each flat inspection.
-    """
     _name = "asset.flat.checklist.template"
     _description = "Flat Inspection Checklist Template"
     _order = "name"
@@ -24,7 +19,6 @@ class AssetFlatChecklistTemplate(models.Model):
         copy=True,
     )
 
-    # ── Per-section convenience fields ───────────────────────────────────
     line_keys_ids = fields.One2many(
         "asset.flat.checklist.template.line", "template_id",
         string="Keys",
@@ -65,7 +59,6 @@ class AssetFlatChecklistTemplate(models.Model):
 
 
 class AssetFlatChecklistTemplateLine(models.Model):
-    """One item in a checklist template."""
     _name = "asset.flat.checklist.template.line"
     _description = "Flat Checklist Template Line"
     _order = "section, sequence, id"
@@ -104,7 +97,6 @@ class AssetFlatChecklistTemplateLine(models.Model):
         return super().create(vals_list)
 
 
-# ── Live checklist on the inspection ─────────────────────────────────────────
 
 class AssetFlatChecklistLine(models.Model):
     _name = "asset.flat.checklist.line"
@@ -149,8 +141,6 @@ class AssetFlatChecklistLine(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        # Pick up default_section from context so lines created via
-        # the per-section One2many fields get the correct section value
         default_section = self.env.context.get("default_section")
         for vals in vals_list:
             if default_section and not vals.get("section"):
@@ -158,18 +148,15 @@ class AssetFlatChecklistLine(models.Model):
         return super().create(vals_list)
 
 
-# ── Extend asset.inspection ───────────────────────────────────────────────────
 
 class AssetInspectionFlatExtension(models.Model):
     _inherit = "asset.inspection"
 
-    # ── Type ──────────────────────────────────────────────────────────────
     inspection_type = fields.Selection([
         ("general", "General Inspection"),
         ("flat", "Flat Inspection"),
     ], string="Inspection Type", default="general", required=True, tracking=True)
 
-    # ── Flat-specific fields ──────────────────────────────────────────────
     flat_asset_id = fields.Many2one(
         "account.asset",
         string="Flat / Unit",
@@ -212,12 +199,10 @@ class AssetInspectionFlatExtension(models.Model):
         domain=lambda self: [("section", "=", "general")],
     )
 
-    # ── Signature / sign-off ──────────────────────────────────────────────
     checked_by = fields.Char(string="Checked By (M/S)")
     resident_signature = fields.Binary(string="Resident Signature")
     resident_signature_name = fields.Char(string="Resident Name (Signature)")
 
-    # ── Completion stats ──────────────────────────────────────────────────
     checklist_total = fields.Integer(compute="_compute_checklist_stats")
     checklist_done = fields.Integer(compute="_compute_checklist_stats")
     checklist_progress = fields.Float(
@@ -234,12 +219,10 @@ class AssetInspectionFlatExtension(models.Model):
             rec.checklist_done = done
             rec.checklist_progress = (done / total * 100) if total else 0.0
 
-    # ── Load checklist from template ──────────────────────────────────────
     def action_load_checklist(self):
         self.ensure_one()
         if not self.checklist_template_id:
             raise UserError(_("Please select a Checklist Template first."))
-        # Clear existing lines
         self.checklist_line_ids.unlink()
         lines = []
         for tpl_line in self.checklist_template_id.line_ids:

@@ -196,14 +196,12 @@ class AccountAsset(models.Model):
         compute="_compute_contract_count"
     )
 
-    # ── New: multiple PM schedules ──────────────────────────────────────────
     pm_schedule_ids = fields.One2many(
         "asset.pm.schedule",
         "asset_id",
         string="PM / Service Schedules",
     )
 
-    # Convenience computed fields replacing the old single next_pm_date
     next_pm_date = fields.Date(
         string="Next PM Due",
         compute="_compute_next_pm_date_multi",
@@ -242,14 +240,12 @@ class AccountAsset(models.Model):
     def _build_auto_name_preview(self):
         self.ensure_one()
 
-        # For location/service types, use facility_code as the primary identifier
         if self.asset_type in ("location", "service"):
             loc_part = self.location_id.full_code or self.location_id.code or ""
             code_part = self.facility_code or ""
             parts = [p for p in [loc_part, code_part] if p]
             return "/".join(parts) if parts else False
 
-        # Original physical asset logic
         loc_part = self.location_id.full_code or self.location_id.code or ""
         dept_part = self._short_code(self.department_id.name, 3)
         cat_map = {
@@ -291,7 +287,6 @@ class AccountAsset(models.Model):
             model = rec.model_id
             vals = {}
 
-            # Accounting M2O fields (existing)
             m2o_fields = [
                 "account_asset_id",
                 "account_depreciation_id",
@@ -303,7 +298,6 @@ class AccountAsset(models.Model):
                     if not rec[fname] and model[fname]:
                         vals[fname] = model[fname].id
 
-            # Simple/scalar fields (existing)
             simple_fields = [
                 "method",
                 "method_number",
@@ -318,7 +312,6 @@ class AccountAsset(models.Model):
                     if not rec[fname] and model[fname]:
                         vals[fname] = model[fname]
 
-            # NEW: Asset Details M2O fields
             asset_detail_m2o_fields = [
                 "customer_id",
                 "responsible_id",
@@ -332,7 +325,6 @@ class AccountAsset(models.Model):
                     if not rec[fname] and model[fname]:
                         vals[fname] = model[fname].id
 
-            # NEW: Asset Details char/simple fields
             asset_detail_simple_fields = [
                 "qr_code",
                 "serial_no",

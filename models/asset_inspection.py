@@ -73,7 +73,6 @@ class AssetInspection(models.Model):
         help="What corrective maintenance is needed.",
     )
 
-    # ── Stages ──────────────────────────────────────────────────────────
     state = fields.Selection(
         [
             ("new", "New"),
@@ -82,6 +81,7 @@ class AssetInspection(models.Model):
             ("material_collected", "Material Collected"),
             ("in_progress", "In Progress"),
             ("completed", "Completed"),
+            ("escalated", "Escalated — Action Required"),
             ("cancelled", "Cancelled"),
         ],
         default="new",
@@ -89,28 +89,24 @@ class AssetInspection(models.Model):
         string="Status",
     )
 
-    # ── Finding lines ────────────────────────────────────────────────────
     finding_ids = fields.One2many(
         "asset.inspection.finding",
         "inspection_id",
         string="Findings",
     )
 
-    # ── Materials / Parts ────────────────────────────────────────────────
     material_ids = fields.One2many(
         "asset.inspection.material",
         "inspection_id",
         string="Parts & Materials",
     )
 
-    # ── Labor ────────────────────────────────────────────────────────────
     labor_ids = fields.One2many(
         "asset.inspection.labor",
         "inspection_id",
         string="Labor Lines",
     )
 
-    # ── Computed totals ──────────────────────────────────────────────────
     total_hours = fields.Float(
         string="Total Hours",
         compute="_compute_totals",
@@ -126,7 +122,7 @@ class AssetInspection(models.Model):
     pending_return_count = fields.Integer(
         string="Pending Returns",
         compute="_compute_pending_return_count",
-        store=True,  # ← add this
+        store=True,
     )
 
     notes = fields.Text(string="General Notes")
@@ -167,12 +163,26 @@ class AssetInspection(models.Model):
                 )
         return super().create(vals_list)
 
-    # ── Stage transitions ────────────────────────────────────────────────
+    def write(self, vals):
+        result = super().write(vals)
+        # If material lines were updated, check for any newly requested lines
+        # that haven't been notified yet (no approved_by, no rejection_reason)
+        if "material_ids" in vals:
+            for rec in self:
+                if rec.state in ("request_material", "material_collected", "in_progress", "escalated"):
+                    new_requested = rec.material_ids.filtered(
+                        lambda l: l.state == "requested"
+                                  and not l.approved_by
+                                  and not l.rejection_reason
+                    )
+                    if new_requested:
+                        rec._send_additional_material_request_email(new_requested)
+        return result
+
     def action_schedule(self):
         self.write({"state": "scheduled"})
 
     def action_request_material(self):
-        """Open the Request Material wizard."""
         self.ensure_one()
         return {
             "name": _("Request Materials"),
@@ -182,7 +192,6 @@ class AssetInspection(models.Model):
             "target": "new",
             "context": {
                 "default_inspection_id": self.id,
-                # Flag so the wizard can call back to send the email on save
                 "send_material_email": True,
             },
         }
@@ -205,9 +214,8 @@ class AssetInspection(models.Model):
                 "Please request new materials or proceed without."
             ))
 
-        # Validate stock pickings for all approved lines
         approved = self.material_ids.filtered(lambda l: l.state == "approved")
-        approved.action_mark_collected()  # validates picking + sets state = collected
+        approved.action_mark_collected()
 
         self.write({"state": "material_collected"})
 
@@ -215,7 +223,6 @@ class AssetInspection(models.Model):
         self.write({"state": "in_progress", "actual_date": fields.Datetime.now()})
 
     def action_cancel(self):
-        # Release all stock reservations before cancelling
         reservable = self.material_ids.filtered(
             lambda l: l.state in ("requested", "approved", "collected")
                       and l.picking_id
@@ -227,7 +234,6 @@ class AssetInspection(models.Model):
     def action_create_maintenance(self):
         self.ensure_one()
 
-        # ── Build finding lines ──────────────────────────────────────────
         finding_vals = []
         for f in self.finding_ids:
             finding_vals.append((0, 0, {
@@ -239,7 +245,6 @@ class AssetInspection(models.Model):
                 "image_1": f.image if hasattr(f, "image") else False,
             }))
 
-        # ── Build labour lines from team + assigned employees ────────────
         employees = self.env["hr.employee"]
 
         if self.maintenance_team_id:
@@ -272,14 +277,14 @@ class AssetInspection(models.Model):
             "name": f"Maintenance from Inspection - {self.name}",
             "asset_id": self.asset_id.id,
             "maintenance_type": "corrective",
-            "description": self.notes or "",  # description now just holds notes
+            "description": self.notes or "",
             "maintenance_team_id": self.maintenance_team_id.id or False,
             "scheduled_date": self.scheduled_date,
             "task_finding_ids": finding_vals,
             "planned_labour_ids": labour_vals,
-            "inspection_id": self.id,  # ← add this
+            "inspection_id": self.id,
             "helpdesk_ticket_id": self.ticket_id.id or False,
-            "billing_entity_id": self.billing_entity_id.id or False,  # ← add this
+            "billing_entity_id": self.billing_entity_id.id or False,
         })
 
         self.write({"maintenance_task_id": task.id})
@@ -296,7 +301,6 @@ class AssetInspection(models.Model):
             "target": "current",
         }
 
-    # ── Smart button counts ──────────────────────────────────────────────
     maintenance_task_count = fields.Integer(
         string="Maintenance Tasks",
         compute="_compute_maintenance_task_count",
@@ -376,7 +380,6 @@ class AssetInspection(models.Model):
         ).report_action(self)
 
     def action_complete(self):
-        """Open the pre-completion wizard."""
         self.ensure_one()
         return {
             "name": _("Complete Inspection"),
@@ -388,7 +391,6 @@ class AssetInspection(models.Model):
         }
 
     def _get_storekeeper_users(self):
-        """Return res.users recordset of active storekeepers with email addresses."""
         group = self.env.ref(
             "asset_management.group_asset_storekeeper", raise_if_not_found=False
         )
@@ -401,11 +403,9 @@ class AssetInspection(models.Model):
         ])
 
     def _get_storekeeper_emails(self):
-        """Return a comma-separated string of storekeeper email addresses."""
         return ", ".join(self._get_storekeeper_users().mapped("email"))
 
     def _get_inspection_url(self):
-        """Return an absolute URL that opens this inspection's form view."""
         base = self.env["ir.config_parameter"].sudo().get_param("web.base.url", "")
         action = self.env.ref(
             "asset_management.action_asset_inspection", raise_if_not_found=False
@@ -418,11 +418,7 @@ class AssetInspection(models.Model):
         )
 
     def _send_material_request_email(self):
-        """
-        Send a notification email to all Storekeepers about pending material requests.
-        Uses mail.mail directly (bypasses template engine) for reliability.
-        Creates one mail.mail record per storekeeper so each appears in Settings > Technical > Emails.
-        """
+
         self.ensure_one()
 
         pending = self.material_ids.filtered(lambda l: l.state == "requested")
@@ -431,7 +427,6 @@ class AssetInspection(models.Model):
 
         storekeepers = self._get_storekeeper_users()
         if not storekeepers:
-            # Log a warning so it's visible in the chatter
             self.message_post(
                 body=_("⚠ Material request confirmed but <b>no Storekeeper users found</b> "
                        "(no users in the Storekeeper group with a valid email address). "
@@ -440,7 +435,6 @@ class AssetInspection(models.Model):
             )
             return
 
-        # Build the materials table rows
         rows_html = ""
         for line in pending:
             stock_color = (
@@ -532,10 +526,8 @@ class AssetInspection(models.Model):
             </div>
         </div>"""
 
-        subject = f"⚙ New Material Request – {self.name}"
+        subject = f"New Material Request – {self.name}"
 
-        # Create one mail.mail record per storekeeper
-        # This guarantees a record appears in Settings > Technical > Email > Emails
         MailMail = self.env["mail.mail"].sudo()
         mails_created = []
 
@@ -545,17 +537,15 @@ class AssetInspection(models.Model):
                 "body_html": body_html,
                 "email_to": user.email,
                 "author_id": self.env.user.partner_id.id,
-                "auto_delete": False,  # Keep in DB so you can inspect it
+                "auto_delete": False,
                 "state": "outgoing",
             })
             mails_created.append(mail)
 
-        # Send immediately
         for mail in mails_created:
             try:
                 mail.send(raise_exception=False)
             except Exception as e:
-                # Don't crash the wizard — log to chatter instead
                 self.message_post(
                     body=_(
                         "⚠ Failed to send email to <b>%(email)s</b>: %(error)s",
@@ -565,7 +555,6 @@ class AssetInspection(models.Model):
                     subtype_xmlid="mail.mt_note",
                 )
 
-        # Log success note on chatter
         names = ", ".join(storekeepers.mapped("name"))
         emails = ", ".join(storekeepers.mapped("email"))
         self.message_post(
@@ -578,23 +567,156 @@ class AssetInspection(models.Model):
             subtype_xmlid="mail.mt_note",
         )
 
-    def _do_complete(self):
-        """
-        Marks inspection as completed immediately.
-        If non-consumables were collected, flags them as pending_return
-        and notifies storekeeper — but does NOT block the completed state.
-        """
+    def _send_additional_material_request_email(self, new_lines):
         self.ensure_one()
 
-        # ── 1. Complete the inspection ───────────────────────────────────
+        storekeepers = self._get_storekeeper_users()
+
+        rows_html = ""
+        for line in new_lines:
+            stock_color = (
+                "#d9534f" if line.qty_available == 0
+                else "#f0ad4e" if line.qty_available < line.qty_requested
+                else "#5cb85c"
+            )
+            rows_html += f"""
+                <tr>
+                    <td style="padding:8px 12px;border:1px solid #ddd;">{line.product_id.name}</td>
+                    <td style="padding:8px 12px;text-align:center;border:1px solid #ddd;">{line.qty_requested}</td>
+                    <td style="padding:8px 12px;text-align:center;border:1px solid #ddd;">
+                        {line.product_uom_id.name if line.product_uom_id else ''}
+                    </td>
+                    <td style="padding:8px 12px;text-align:center;border:1px solid #ddd;color:{stock_color};">
+                        {line.qty_available}
+                    </td>
+                </tr>"""
+
+        inspection_url = self._get_inspection_url()
+
+        body_html = f"""
+        <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;
+                    border:1px solid #e0e0e0;border-radius:6px;overflow:hidden;">
+            <div style="background-color:#875A7B;padding:24px 32px;">
+                <h2 style="color:#ffffff;margin:0;">Additional Materials Requested</h2>
+            </div>
+            <div style="padding:24px 32px;background-color:#ffffff;">
+                <p style="color:#333;font-size:15px;">
+                    Additional materials have been requested for an ongoing inspection:
+                </p>
+                <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+                    <tr>
+                        <td style="padding:8px 12px;background:#f5f5f5;font-weight:bold;width:40%;border:1px solid #ddd;">
+                            Inspection Reference
+                        </td>
+                        <td style="padding:8px 12px;border:1px solid #ddd;">{self.name}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px 12px;background:#f5f5f5;font-weight:bold;border:1px solid #ddd;">Asset</td>
+                        <td style="padding:8px 12px;border:1px solid #ddd;">
+                            {self.asset_id.name if self.asset_id else 'N/A'}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px 12px;background:#f5f5f5;font-weight:bold;border:1px solid #ddd;">
+                            Current Status
+                        </td>
+                        <td style="padding:8px 12px;border:1px solid #ddd;">
+                            {dict(self._fields['state'].selection).get(self.state, self.state)}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px 12px;background:#f5f5f5;font-weight:bold;border:1px solid #ddd;">
+                            Maintenance Team
+                        </td>
+                        <td style="padding:8px 12px;border:1px solid #ddd;">
+                            {self.maintenance_team_id.name if self.maintenance_team_id else 'N/A'}
+                        </td>
+                    </tr>
+                </table>
+
+                <h3 style="color:#875A7B;margin-bottom:8px;">New Materials Requested</h3>
+                <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
+                    <thead>
+                        <tr style="background-color:#875A7B;color:white;">
+                            <th style="padding:8px 12px;text-align:left;border:1px solid #ddd;">Product</th>
+                            <th style="padding:8px 12px;text-align:center;border:1px solid #ddd;">Qty</th>
+                            <th style="padding:8px 12px;text-align:center;border:1px solid #ddd;">Unit</th>
+                            <th style="padding:8px 12px;text-align:center;border:1px solid #ddd;">Available Stock</th>
+                        </tr>
+                    </thead>
+                    <tbody>{rows_html}</tbody>
+                </table>
+
+                <div style="text-align:center;margin:28px 0;">
+                    <a href="{inspection_url}"
+                       style="background-color:#875A7B;color:white;padding:12px 28px;
+                              border-radius:4px;text-decoration:none;font-size:15px;font-weight:bold;">
+                        Review &amp; Approve Materials
+                    </a>
+                </div>
+            </div>
+            <div style="background-color:#f5f5f5;padding:14px 32px;text-align:center;">
+                <p style="color:#aaa;font-size:12px;margin:0;">
+                    Automated notification — Asset Management system.
+                </p>
+            </div>
+        </div>"""
+
+        subject = f"Additional Materials Requested — {self.name}"
+        product_names = ", ".join(new_lines.mapped("product_id.name"))
+
+        if not storekeepers:
+            self.message_post(
+                body=_(
+                    "⚠ Additional materials added (<b>%(products)s</b>) but "
+                    "no Storekeeper users found to notify.",
+                    products=product_names,
+                ),
+                subtype_xmlid="mail.mt_note",
+            )
+            return
+
+        mail_sudo = self.env["mail.mail"].sudo()
+        for user in storekeepers:
+            mail = mail_sudo.create({
+                "subject": subject,
+                "body_html": body_html,
+                "email_to": user.email,
+                "author_id": self.env.user.partner_id.id,
+                "auto_delete": False,
+                "state": "outgoing",
+            })
+            try:
+                mail.send(raise_exception=False)
+            except Exception:
+                pass
+
+        names = ", ".join(storekeepers.mapped("name"))
+        self.message_post(
+            body=_(
+                "Additional material request for <b>%(products)s</b> "
+                "sent to Storekeeper(s): <b>%(names)s</b>.",
+                products=product_names,
+                names=names,
+            ),
+            subtype_xmlid="mail.mt_note",
+        )
+
+    def _do_complete(self):
+        self.ensure_one()
+
+        final_state = "escalated" if self.escalation_required else "completed"
         self.write({
-            "state": "completed",
+            "state": final_state,
             "completed_date": fields.Datetime.now(),
         })
 
-        # ── 2. Flag non-consumables as pending return ────────────────────
+        # Non-consumables + partially consumed consumables → pending return
         non_consumables = self.material_ids.filtered(
-            lambda l: not l.is_consumable and l.state == "collected"
+            lambda l: l.state in ("collected", "pending_return") and (
+                    not l.is_consumable
+                    or (l.is_consumable and l.qty_consumed < l.qty_requested)
+            )
         )
         if non_consumables:
             non_consumables.write({"state": "pending_return"})
@@ -602,17 +724,37 @@ class AssetInspection(models.Model):
             items = ", ".join(non_consumables.mapped("product_id.name"))
             self.message_post(
                 body=_(
-                    "⚠ The following non-consumable equipment must be returned to the store: "
+                    "The following items must be returned to the store: "
                     "<b>%(items)s</b>. The Storekeeper has been notified.",
                     items=items,
                 ),
                 subtype_xmlid="mail.mt_note",
             )
 
-        # ── 3. Helpdesk ticket update ────────────────────────────────────
+        # Only post consumption moves for fully consumed consumables
+        # (partial consumables are in pending_return state — skip them here)
+        consumed_lines = self.material_ids.filtered(
+            lambda l: l.qty_consumed and l.qty_consumed > 0
+                      and l.state == "consumed"  # ← was checking 'collected'/'pending_return' too
+                      and l.is_consumable
+        )
+        for line in consumed_lines:
+            try:
+                line._post_consumption_move()
+            except Exception as e:
+                self.message_post(
+                    body=_(
+                        "⚠ Could not post consumption move for <b>%(product)s</b>: %(error)s",
+                        product=line.product_id.name,
+                        error=str(e),
+                    ),
+                    subtype_xmlid="mail.mt_note",
+                )
+
         if self.ticket_id:
             ticket_vals = {}
-            if self.asset_id and not self.ticket_id.asset_id:
+
+            if self.asset_id and self.ticket_id.asset_id != self.asset_id:
                 ticket_vals["asset_id"] = self.asset_id.id
 
             complete_stage = self.env["helpdesk.stage"].search(
@@ -640,7 +782,7 @@ class AssetInspection(models.Model):
                     escalation=(
                         "<br/>⚠ <b>Escalated to corrective maintenance.</b>"
                         if self.escalation_required
-                        else "<br/>✅ Issue resolved — no maintenance required."
+                        else "<br/>Issue resolved — no maintenance required."
                     ),
                 ),
                 subtype_xmlid="mail.mt_note",
@@ -648,21 +790,17 @@ class AssetInspection(models.Model):
 
     @api.onchange("maintenance_team_id", "employee_ids")
     def _onchange_populate_labor_lines(self):
-        """Auto-populate labor lines from team members and/or assigned employees."""
 
         employees = self.env["hr.employee"]
 
-        # Collect from maintenance team (leader + members)
         if self.maintenance_team_id:
             team = self.maintenance_team_id
-            # Team leader (res.users → hr.employee)
             if team.team_leader_id:
                 leader_employee = self.env["hr.employee"].search(
                     [("user_id", "=", team.team_leader_id.id)], limit=1
                 )
                 if leader_employee:
                     employees |= leader_employee
-            # Team members (res.users → hr.employee)
             for member in team.member_ids:
                 member_employee = self.env["hr.employee"].search(
                     [("user_id", "=", member.id)], limit=1
@@ -670,14 +808,12 @@ class AssetInspection(models.Model):
                 if member_employee:
                     employees |= member_employee
 
-        # Also include directly assigned employees (employee_ids Many2many)
         if self.employee_ids:
             employees |= self.employee_ids
 
         if not employees:
             return
 
-        # Get employees already in labor lines to avoid duplicates
         existing_employee_ids = self.labor_ids.mapped("employee_id").ids
 
         new_lines = []
@@ -702,7 +838,6 @@ class AssetInspection(models.Model):
             )
 
     def _send_pending_return_email(self, non_consumable_lines):
-        """Notify storekeeper and team leader that equipment needs to be returned."""
         self.ensure_one()
 
         recipients = {}
@@ -732,7 +867,7 @@ class AssetInspection(models.Model):
                         </td>
                     </tr>"""
 
-        subject = f"🔧 Equipment Return Required – {self.name}"
+        subject = f"Equipment Return Required – {self.name}"
         body_html = f"""
             <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;
                         border:1px solid #e0e0e0;border-radius:6px;overflow:hidden;">
@@ -804,7 +939,6 @@ class AssetInspection(models.Model):
                 pass
 
     def action_view_pending_returns(self):
-        """Smart button — opens the inspection focused on Parts tab (pending returns visible)."""
         self.ensure_one()
         return {
             "type": "ir.actions.act_window",
@@ -964,7 +1098,6 @@ class AssetInspectionMaterial(models.Model):
         store=False,
     )
 
-    # Main state — tracks the full lifecycle
     state = fields.Selection(
         [
             ("requested", "Requested"),
@@ -1042,11 +1175,9 @@ class AssetInspectionMaterial(models.Model):
             line.qty_available = line.product_id.free_qty if line.product_id else 0.0
 
     def action_approve(self):
-        """Storekeeper approves — reserve stock immediately."""
         self._check_storekeeper_access()
 
         for rec in self:
-            # Check available stock before approving
             if rec.product_id.free_qty < rec.qty_requested:
                 raise UserError(_(
                     "Cannot approve %(product)s: only %(available)s %(unit)s available "
@@ -1058,7 +1189,6 @@ class AssetInspectionMaterial(models.Model):
                     requested=rec.qty_requested,
                 ))
 
-            # Create internal stock reservation picking
             picking = rec._create_stock_reservation()
 
             rec.write({
@@ -1084,22 +1214,15 @@ class AssetInspectionMaterial(models.Model):
             )
 
     def _create_stock_reservation(self):
-        """
-        Create an internal stock picking (store → virtual inspection location)
-        and immediately reserve (assign) the stock, so it's locked.
-        """
         self.ensure_one()
 
-        # Source: default stock location (WH/Stock)
         warehouse = self.env["stock.warehouse"].search([], limit=1)
         src_location = warehouse.lot_stock_id if warehouse else self.env.ref(
             "stock.stock_location_stock"
         )
 
-        # Destination: virtual "Inspection" location (create once if missing)
         dest_location = self._get_or_create_inspection_location()
 
-        # Internal picking type
         picking_type = self.env["stock.picking.type"].search([
             ("code", "=", "internal"),
             ("warehouse_id", "=", warehouse.id),
@@ -1125,14 +1248,12 @@ class AssetInspectionMaterial(models.Model):
             })],
         })
 
-        # Confirm and immediately reserve stock
         picking.action_confirm()
-        picking.action_assign()  # This is what actually reserves/locks the stock
+        picking.action_assign()
 
         return picking
 
     def _get_or_create_inspection_location(self):
-        """Return (or create) a virtual location for inspection material reservations."""
         location = self.env["stock.location"].search([
             ("name", "=", "Inspection Reserved"),
             ("usage", "=", "internal"),
@@ -1150,7 +1271,6 @@ class AssetInspectionMaterial(models.Model):
         return location
 
     def action_reject(self):
-        """Open rejection wizard — reservation will be cancelled on confirm."""
         self._check_storekeeper_access()
         return {
             "name": _("Reject Material Request"),
@@ -1162,7 +1282,6 @@ class AssetInspectionMaterial(models.Model):
         }
 
     def _cancel_stock_reservation(self):
-        """Cancel the stock picking/reservation if one exists."""
         for rec in self:
             if rec.picking_id and rec.picking_id.state not in ("done", "cancel"):
                 rec.picking_id.action_cancel()
@@ -1177,23 +1296,16 @@ class AssetInspectionMaterial(models.Model):
                 )
 
     def _do_reject(self, reason=""):
-        """Called by the rejection wizard after setting the reason."""
         self._cancel_stock_reservation()
         self.write({
             "state": "rejected",
             "rejection_reason": reason,
         })
 
-    # ── When material is marked collected: validate the picking ──────────────
-
     def action_mark_collected(self):
-        """
-        Mark material as physically collected from store.
-        Validates the internal picking so stock moves to Inspection Reserved location.
-        """
+
         for rec in self:
             if rec.picking_id and rec.picking_id.state == "assigned":
-                # Validate (done) the picking — stock physically moved
                 for move in rec.picking_id.move_ids:
                     move.quantity = move.product_uom_qty
                 rec.picking_id.sudo().button_validate()
@@ -1209,7 +1321,6 @@ class AssetInspectionMaterial(models.Model):
             )
 
     def action_return_unused(self):
-        """Return unused material back to stock (creates reverse picking)."""
         for rec in self:
             if not rec.picking_id:
                 rec.write({"state": "returned"})
@@ -1226,14 +1337,13 @@ class AssetInspectionMaterial(models.Model):
             picking_state = rec.picking_id.state
 
             if picking_state == "done":
-                # ── Manual return picking — bypasses wizard's internal action_assign ──
                 original = rec.picking_id
                 warehouse = rec.env["stock.warehouse"].search([], limit=1)
 
                 return_picking = rec.env["stock.picking"].sudo().create({
                     "picking_type_id": original.picking_type_id.id,
-                    "location_id": original.location_dest_id.id,  # Inspection Reserved
-                    "location_dest_id": original.location_id.id,  # WH/Stock
+                    "location_id": original.location_dest_id.id,
+                    "location_dest_id": original.location_id.id,
                     "origin": f"Return of {original.name}",
                     "move_ids": [(0, 0, {
                         "product_id": rec.product_id.id,
@@ -1246,10 +1356,8 @@ class AssetInspectionMaterial(models.Model):
                     })],
                 })
 
-                # Confirm without assign
                 return_picking.action_confirm()
 
-                # Set move lines directly
                 for move in return_picking.move_ids:
                     rec.env["stock.move.line"].sudo().create({
                         "picking_id": return_picking.id,
@@ -1309,17 +1417,237 @@ class AssetInspectionMaterial(models.Model):
             )
 
     def _all_approved(self):
-        """Check if all non-rejected lines are approved — used by inspection."""
         active_lines = self.filtered(lambda l: l.state != "rejected")
         return all(l.state in ("approved", "collected", "consumed", "returned") for l in active_lines)
 
     def action_confirm_return(self):
-        """
-        Storekeeper clicks this when the equipment is physically back in the store.
-        Creates a return stock picking back to WH/Stock.
-        """
         self._check_storekeeper_access()
         for rec in self:
             if rec.state != "pending_return":
                 continue
-            rec.action_return_unused()  # already handles picking + state = returned
+            qty_to_return = rec.qty_requested - rec.qty_consumed
+            if qty_to_return <= 0:
+                rec.write({"state": "returned"})
+                continue
+            rec._return_partial_qty_to_stock(qty_to_return)
+
+    def _return_partial_qty_to_stock(self, qty_to_return):
+        """
+        Return qty_to_return units back to the original source location
+        by creating a proper reverse picking against the original picking.
+        """
+        self.ensure_one()
+
+        if not self.picking_id:
+            # No picking linked — just mark returned
+            self.write({"state": "returned"})
+            self.inspection_id.message_post(
+                body=_(
+                    "Equipment <b>%(product)s</b> marked as returned (no stock picking linked).",
+                    product=self.product_id.name,
+                ),
+                subtype_xmlid="mail.mt_note",
+            )
+            return
+
+        original = self.picking_id
+
+        if original.state != "done":
+            # Picking not yet validated — just cancel it and mark returned
+            if original.state not in ("cancel",):
+                original.action_cancel()
+            self.write({"state": "returned"})
+            self.inspection_id.message_post(
+                body=_(
+                    "Stock reservation for <b>%(product)s</b> cancelled. "
+                    "%(qty)s %(unit)s marked as returned.",
+                    product=self.product_id.name,
+                    qty=qty_to_return,
+                    unit=self.product_uom_id.name,
+                ),
+                subtype_xmlid="mail.mt_note",
+            )
+            return
+
+        # Original picking is done — create a proper reverse picking
+        return_picking = self.env["stock.picking"].sudo().create({
+            "picking_type_id": original.picking_type_id.id,
+            "location_id": original.location_dest_id.id,  # Inspection Reserved
+            "location_dest_id": original.location_id.id,  # WH/Stock
+            "origin": f"Return of {original.name} [{self.inspection_id.name}]",
+            "move_ids": [(0, 0, {
+                "product_id": self.product_id.id,
+                "product_uom": self.product_uom_id.id,
+                "product_uom_qty": qty_to_return,
+                "quantity": qty_to_return,
+                "location_id": original.location_dest_id.id,
+                "location_dest_id": original.location_id.id,
+                "origin_returned_move_id": original.move_ids[:1].id,
+            })],
+        })
+
+        return_picking.action_confirm()
+
+        for move in return_picking.move_ids:
+            self.env["stock.move.line"].sudo().create({
+                "picking_id": return_picking.id,
+                "move_id": move.id,
+                "product_id": move.product_id.id,
+                "product_uom_id": move.product_uom.id,
+                "quantity": qty_to_return,
+                "location_id": move.location_id.id,
+                "location_dest_id": move.location_dest_id.id,
+            })
+            move.sudo().write({"quantity": qty_to_return})
+
+        return_picking.sudo().with_context(
+            skip_backorder=True,
+            skip_immediate=True,
+            immediate_transfer=True,
+        ).button_validate()
+
+        self.write({"state": "returned"})
+        self.inspection_id.message_post(
+            body=_(
+                "%(qty)s × <b>%(product)s</b> returned to stock. "
+                "Return picking: <b>%(picking)s</b>.",
+                qty=qty_to_return,
+                product=self.product_id.name,
+                picking=return_picking.name,
+            ),
+            subtype_xmlid="mail.mt_note",
+        )
+
+    def _return_qty_to_stock(self, qty_to_return):
+        """Return a specific quantity back to stock from Inspection Reserved location."""
+        self.ensure_one()
+
+        inspection_location = self.env["stock.location"].search([
+            ("name", "=", "Inspection Reserved"),
+            ("usage", "=", "internal"),
+        ], limit=1)
+
+        warehouse = self.env["stock.warehouse"].search([], limit=1)
+        stock_location = warehouse.lot_stock_id if warehouse else self.env.ref("stock.stock_location_stock")
+
+        if not inspection_location:
+            # Fallback: use picking-based return (original logic)
+            self.action_return_unused()
+            return
+
+        # Direct stock move: Inspection Reserved → main stock
+        move = self.env["stock.move"].sudo().create({
+            "description_picking": f"Return: {self.product_id.name} [{self.inspection_id.name}]",
+            "product_id": self.product_id.id,
+            "product_uom": self.product_uom_id.id,
+            "product_uom_qty": qty_to_return,
+            "quantity": qty_to_return,
+            "location_id": inspection_location.id,
+            "location_dest_id": stock_location.id,
+            "origin": f"RETURN-{self.inspection_id.name}",
+            "state": "confirmed",
+        })
+        self.env["stock.move.line"].sudo().create({
+            "move_id": move.id,
+            "product_id": self.product_id.id,
+            "product_uom_id": self.product_uom_id.id,
+            "quantity": qty_to_return,
+            "location_id": inspection_location.id,
+            "location_dest_id": stock_location.id,
+        })
+        move.sudo()._action_done()
+
+        self.write({"state": "returned"})
+        self.inspection_id.message_post(
+            body=_(
+                "%(qty)s × <b>%(product)s</b> returned to stock from Inspection Reserved. "
+                "Origin: <b>%(origin)s</b>.",
+                qty=qty_to_return,
+                product=self.product_id.name,
+                origin=move.origin,
+            ),
+            subtype_xmlid="mail.mt_note",
+        )
+
+    def _post_consumption_move(self):
+        """
+        Write off consumed qty: Inspection Reserved → Inspection Consumed (production virtual).
+        Uses a raw stock.move — pickings cannot route to virtual locations.
+        """
+        self.ensure_one()
+
+        if not self.qty_consumed or self.qty_consumed <= 0:
+            return
+
+        inspection_location = self.env["stock.location"].search([
+            ("name", "=", "Inspection Reserved"),
+            ("usage", "=", "internal"),
+        ], limit=1)
+
+        if not inspection_location:
+            self.inspection_id.message_post(
+                body=_(
+                    "⚠ 'Inspection Reserved' location not found — consumption move skipped for <b>%s</b>.") % self.product_id.name,
+                subtype_xmlid="mail.mt_note",
+            )
+            return
+
+        # Look for consumption location: prefer child of Inspection Reserved,
+        # fall back to any production-type location
+        consumed_location = self.env["stock.location"].search([
+            ("location_id", "=", inspection_location.id),
+            ("usage", "=", "production"),
+        ], limit=1)
+
+        if not consumed_location:
+            # Fallback: any production virtual location by name
+            consumed_location = self.env["stock.location"].search([
+                ("usage", "=", "production"),
+                ("name", "in", ["Inspection Consumed", "Consumption", "Production"]),
+            ], limit=1)
+
+        if not consumed_location:
+            self.inspection_id.message_post(
+                body=_("⚠ No consumption/production virtual location found — move skipped for <b>%s</b>. "
+                       "Please create a child location under 'Inspection Reserved' with type 'Production'.") % self.product_id.name,
+                subtype_xmlid="mail.mt_note",
+            )
+            return
+
+        move = self.env["stock.move"].sudo().create({
+            "description_picking": f"Consumed: {self.product_id.name} [{self.inspection_id.name}]",
+            "product_id": self.product_id.id,
+            "product_uom": self.product_uom_id.id,
+            "product_uom_qty": self.qty_consumed,
+            "quantity": self.qty_consumed,
+            "location_id": inspection_location.id,
+            "location_dest_id": consumed_location.id,
+            "origin": f"CONSUMED-{self.inspection_id.name}",
+            "state": "confirmed",
+        })
+
+        self.env["stock.move.line"].sudo().create({
+            "move_id": move.id,
+            "product_id": self.product_id.id,
+            "product_uom_id": self.product_uom_id.id,
+            "quantity": self.qty_consumed,
+            "location_id": inspection_location.id,
+            "location_dest_id": consumed_location.id,
+        })
+
+        move.sudo()._action_done()
+
+        if self.state != "pending_return":
+            self.write({"state": "consumed"})
+
+        self.inspection_id.message_post(
+            body=_(
+                "%(qty)s × <b>%(product)s</b> written off "
+                "(Inspection Reserved → %(dest)s). Origin: <b>%(origin)s</b>.",
+                qty=self.qty_consumed,
+                product=self.product_id.name,
+                dest=consumed_location.complete_name,
+                origin=move.origin,
+            ),
+            subtype_xmlid="mail.mt_note",
+        )

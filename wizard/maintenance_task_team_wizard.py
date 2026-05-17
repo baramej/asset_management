@@ -36,10 +36,9 @@ class AssetTeamScheduleViewerWizard(models.TransientModel):
     def _build_schedule_lines(self, team):
         lines = []
 
-        # ── Inspections ──────────────────────────────────────────────
         inspections = self.env["asset.inspection"].search([
             ("maintenance_team_id", "=", team.id),
-            ("state", "not in", ["completed", "cancelled"]),
+            ("state", "in", ["scheduled", "request_material", "material_collected", "in_progress"]),
             ("scheduled_date", "!=", False),
         ], order="scheduled_date asc")
 
@@ -53,10 +52,9 @@ class AssetTeamScheduleViewerWizard(models.TransientModel):
                 "color_state": rec.state,
             }))
 
-        # ── Maintenance Tasks ────────────────────────────────────────
         tasks = self.env["asset.maintenance.task"].search([
             ("maintenance_team_id", "=", team.id),
-            ("state", "not in", ["done", "cancel"]),
+            ("state", "in", ["assigned", "in_progress"]),
             ("scheduled_date", "!=", False),
         ], order="scheduled_date asc")
 
@@ -70,10 +68,9 @@ class AssetTeamScheduleViewerWizard(models.TransientModel):
                 "color_state": rec.state,
             }))
 
-        # ── Job Orders ───────────────────────────────────────────────
         job_orders = self.env["asset.job.order"].search([
             ("maintenance_team_id", "=", team.id),
-            ("state", "not in", ["closed", "rejected"]),
+            ("state", "in", ["request_material", "material_approved", "in_progress"]),
             ("scheduled_date", "!=", False),
         ], order="scheduled_date asc")
 
@@ -87,7 +84,6 @@ class AssetTeamScheduleViewerWizard(models.TransientModel):
                 "color_state": rec.state,
             }))
 
-        # Sort by date
         lines.sort(key=lambda l: l[2]["scheduled_date"])
         return lines
 

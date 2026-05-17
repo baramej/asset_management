@@ -40,6 +40,44 @@ class HelpdeskTicket(models.Model):
         compute="_compute_maintenance_task_count",
     )
 
+    contract_id = fields.Many2one(
+        "asset.maintenance.contract",
+        string="AMC Contract",
+        compute="_compute_asset_contract",
+        store=False,
+    )
+    contract_name = fields.Char(
+        string="Contract Name",
+        compute="_compute_asset_contract",
+        store=False,
+    )
+    contract_reference = fields.Char(
+        string="Contract Reference",
+        compute="_compute_asset_contract",
+        store=False,
+    )
+
+    @api.depends("asset_id")
+    def _compute_asset_contract(self):
+        for ticket in self:
+            if ticket.asset_id:
+                contract_line = self.env["asset.maintenance.contract.line"].search([
+                    ("asset_id", "=", ticket.asset_id.id),
+                ], limit=1)
+                if contract_line and contract_line.contract_id:
+                    contract = contract_line.contract_id
+                    ticket.contract_id = contract.id
+                    ticket.contract_name = contract.name
+                    ticket.contract_reference = contract.reference or ""
+                else:
+                    ticket.contract_id = False
+                    ticket.contract_name = ""
+                    ticket.contract_reference = ""
+            else:
+                ticket.contract_id = False
+                ticket.contract_name = ""
+                ticket.contract_reference = ""
+
     @api.depends("inspection_id")
     def _compute_inspection_count(self):
         for ticket in self:
@@ -79,7 +117,6 @@ class HelpdeskTicket(models.Model):
         }
 
     def action_view_inspection(self):
-        """Smart button — opens inspection form with full details."""
         self.ensure_one()
         return {
             "name": _("Inspection"),
@@ -92,7 +129,6 @@ class HelpdeskTicket(models.Model):
         }
 
     def action_view_maintenance_task(self):
-        """Smart button — opens maintenance task form."""
         self.ensure_one()
         return {
             "name": _("Maintenance Task"),
@@ -118,7 +154,6 @@ class HelpdeskTicket(models.Model):
             "inspection_id": self.inspection_id.id or False,
         })
 
-        # Pre-populate findings from inspection
         if self.inspection_id and self.inspection_id.finding_ids:
             for finding in self.inspection_id.finding_ids:
                 self.env["asset.task.finding.line"].create({
@@ -132,7 +167,6 @@ class HelpdeskTicket(models.Model):
                     "image_3": finding.image_3 if hasattr(finding, "image_3") else False,
                 })
 
-        # Pre-populate materials from inspection spare parts
         if self.inspection_id and self.asset_id.spare_part_line_ids:
             for part in self.asset_id.spare_part_line_ids.filtered(
                     lambda p: p.usage_type in ("corrective", "both")

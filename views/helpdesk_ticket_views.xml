@@ -8,7 +8,6 @@
 
             <xpath expr="//div[hasclass('oe_button_box')]" position="inside">
 
-                <!-- Inspection smart button -->
                 <button name="action_view_inspection"
                         type="object"
                         class="oe_stat_button"
@@ -73,11 +72,31 @@
                                decoration-info="inspection_state == 'scheduled'"
                                decoration-warning="inspection_state in ('request_material', 'material_collected', 'in_progress')"
                                decoration-success="inspection_state == 'completed'"
-                               decoration-danger="inspection_state == 'cancelled'"/>
+                               decoration-danger="inspection_state in ('cancelled', 'escalated')"/>
                         <field name="maintenance_task_id"
                                readonly="1"
                                invisible="maintenance_task_id == False"/>
                     </group>
+
+                    <!-- AMC Contract Info — shown only when asset is linked to a contract -->
+                    <group string="AMC Contract" invisible="not contract_id">
+                        <group>
+                            <field name="contract_name"
+                                   readonly="1"
+                                   string="Contract Name"/>
+                            <field name="contract_reference"
+                                   readonly="1"
+                                   string="Contract Reference"
+                                   invisible="not contract_reference"/>
+                        </group>
+                        <group>
+                            <field name="contract_id"
+                                   readonly="1"
+                                   string="Contract"
+                                   options="{'no_open': False}"/>
+                        </group>
+                    </group>
+
                 </group>
             </xpath>
 

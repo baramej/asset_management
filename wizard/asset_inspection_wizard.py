@@ -15,7 +15,7 @@ class AssetInspectionWizard(models.TransientModel):
 
     inspection_type = fields.Selection([
         ("general", "General Inspection"),
-        ("flat",    "Flat Inspection"),
+        ("flat", "Flat Inspection"),
     ], string="Inspection Type", default="general", required=True)
 
     maintenance_team_id = fields.Many2one(
@@ -23,7 +23,6 @@ class AssetInspectionWizard(models.TransientModel):
         string="Maintenance Team",
     )
 
-    # ── Flat-only fields (shown when type == flat) ────────────────────────
     flat_asset_id = fields.Many2one(
         "account.asset",
         string="Flat / Unit",
@@ -48,7 +47,6 @@ class AssetInspectionWizard(models.TransientModel):
 
     notes = fields.Text(string="Notes")
 
-    # ── Team schedule preview ────────────────────────────────────────────
     team_schedule_ids = fields.One2many(
         "asset.inspection.wizard.schedule.line",
         "wizard_id",
@@ -58,12 +56,9 @@ class AssetInspectionWizard(models.TransientModel):
 
     @api.onchange("maintenance_team_id")
     def _onchange_maintenance_team_id(self):
-        """Reload schedule preview whenever team changes."""
         self._load_team_schedule()
 
     def _load_team_schedule(self):
-        """Populate team_schedule_ids with all upcoming work for the selected team."""
-        # Clear existing lines
         self.team_schedule_ids = [(5, 0, 0)]
 
         if not self.maintenance_team_id:
@@ -72,10 +67,9 @@ class AssetInspectionWizard(models.TransientModel):
         team = self.maintenance_team_id
         lines = []
 
-        # ── Inspections ──────────────────────────────────────────────────
         inspections = self.env["asset.inspection"].search([
             ("maintenance_team_id", "=", team.id),
-            ("state", "not in", ["completed", "cancelled"]),
+            ("state", "in", ["scheduled", "request_material", "material_collected", "in_progress"]),
             ("scheduled_date", "!=", False),
         ], order="scheduled_date asc")
 
@@ -89,10 +83,9 @@ class AssetInspectionWizard(models.TransientModel):
                 "color_state": insp.state,
             }))
 
-        # ── Maintenance Tasks ────────────────────────────────────────────
         tasks = self.env["asset.maintenance.task"].search([
             ("maintenance_team_id", "=", team.id),
-            ("state", "not in", ["done", "cancel"]),
+            ("state", "in", ["assigned", "in_progress"]),
             ("scheduled_date", "!=", False),
         ], order="scheduled_date asc")
 
@@ -106,10 +99,9 @@ class AssetInspectionWizard(models.TransientModel):
                 "color_state": task.state,
             }))
 
-        # ── Job Orders ───────────────────────────────────────────────────
         job_orders = self.env["asset.job.order"].search([
             ("maintenance_team_id", "=", team.id),
-            ("state", "not in", ["closed", "rejected"]),
+            ("state", "in", ["request_material", "material_approved", "in_progress"]),
             ("scheduled_date", "!=", False),
         ], order="scheduled_date asc")
 
@@ -123,7 +115,6 @@ class AssetInspectionWizard(models.TransientModel):
                 "color_state": job.state,
             }))
 
-        # Sort all combined lines by date
         lines.sort(key=lambda l: l[2]["scheduled_date"])
         self.team_schedule_ids = lines
 
@@ -136,35 +127,29 @@ class AssetInspectionWizard(models.TransientModel):
                 )
 
     def _send_inspection_assigned_email(self, inspection):
-            """
-            Send a notification email to the maintenance team leader
-            when a new inspection is assigned to their team.
-            """
-            if not self.maintenance_team_id or not self.maintenance_team_id.team_leader_id:
-                return
 
-            leader = self.maintenance_team_id.team_leader_id  # res.users
+        if not self.maintenance_team_id or not self.maintenance_team_id.team_leader_id:
+            return
 
-            if not leader.email:
-                return
+        leader = self.maintenance_team_id.team_leader_id  # res.users
 
-            # ── Build inspection URL ─────────────────────────────────────────
-            base = self.env["ir.config_parameter"].sudo().get_param("web.base.url", "")
-            action = self.env.ref(
-                "asset_management.action_asset_inspection", raise_if_not_found=False
-            )
-            action_id = action.id if action else "asset_inspection"
-            inspection_url = f"{base}/odoo/action-{action_id}/{inspection.id}"
+        if not leader.email:
+            return
 
-            # ── Build team members list ──────────────────────────────────────
-            member_names = ", ".join(self.maintenance_team_id.member_ids.mapped("name")) or "—"
+        base = self.env["ir.config_parameter"].sudo().get_param("web.base.url", "")
+        action = self.env.ref(
+            "asset_management.action_asset_inspection", raise_if_not_found=False
+        )
+        action_id = action.id if action else "asset_inspection"
+        inspection_url = f"{base}/odoo/action-{action_id}/{inspection.id}"
 
-            # ── Build assigned employees list (if any) ───────────────────────
-            employee_names = ", ".join(self.employee_ids.mapped("name")) or "—"
+        member_names = ", ".join(self.maintenance_team_id.member_ids.mapped("name")) or "—"
 
-            subject = f"📋 New Inspection Assigned – {inspection.name}"
+        employee_names = ", ".join(self.employee_ids.mapped("name")) or "—"
 
-            body_html = f"""
+        subject = f"New Inspection Assigned – {inspection.name}"
+
+        body_html = f"""
             <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;
                         border:1px solid #e0e0e0;border-radius:6px;overflow:hidden;">
 
@@ -241,7 +226,6 @@ class AssetInspectionWizard(models.TransientModel):
                         </tr>'''}
                     </table>
 
-                    <!-- CTA Button -->
                     <div style="text-align:center;margin:28px 0;">
                         <a href="{inspection_url}"
                            style="background-color:#00695C;color:white;padding:12px 28px;
@@ -255,7 +239,6 @@ class AssetInspectionWizard(models.TransientModel):
                     </p>
                 </div>
 
-                <!-- Footer -->
                 <div style="background-color:#f5f5f5;padding:14px 32px;text-align:center;">
                     <p style="color:#aaa;font-size:12px;margin:0;">
                         This is an automated notification from the Asset Management system.
@@ -263,40 +246,39 @@ class AssetInspectionWizard(models.TransientModel):
                 </div>
             </div>"""
 
-            mail = self.env["mail.mail"].sudo().create({
-                "subject": subject,
-                "body_html": body_html,
-                "email_to": leader.email,
-                "author_id": self.env.user.partner_id.id,
-                "auto_delete": False,
-                "state": "outgoing",
-            })
+        mail = self.env["mail.mail"].sudo().create({
+            "subject": subject,
+            "body_html": body_html,
+            "email_to": leader.email,
+            "author_id": self.env.user.partner_id.id,
+            "auto_delete": False,
+            "state": "outgoing",
+        })
 
-            try:
-                mail.send(raise_exception=False)
-            except Exception as e:
-                # Log but don't crash the wizard
-                inspection.message_post(
-                    body=_(
-                        "⚠ Failed to send inspection assignment email to team leader "
-                        "<b>%(name)s</b> (%(email)s): %(error)s",
-                        name=leader.name,
-                        email=leader.email,
-                        error=str(e),
-                    ),
-                    subtype_xmlid="mail.mt_note",
-                )
-                return
-
+        try:
+            mail.send(raise_exception=False)
+        except Exception as e:
             inspection.message_post(
                 body=_(
-                    "Inspection assignment email sent to team leader "
-                    "<b>%(name)s</b> (%(email)s).",
+                    "Failed to send inspection assignment email to team leader "
+                    "<b>%(name)s</b> (%(email)s): %(error)s",
                     name=leader.name,
                     email=leader.email,
+                    error=str(e),
                 ),
                 subtype_xmlid="mail.mt_note",
             )
+            return
+
+        inspection.message_post(
+            body=_(
+                "Inspection assignment email sent to team leader "
+                "<b>%(name)s</b> (%(email)s).",
+                name=leader.name,
+                email=leader.email,
+            ),
+            subtype_xmlid="mail.mt_note",
+        )
 
     def action_confirm(self):
         self.ensure_one()
@@ -309,12 +291,12 @@ class AssetInspectionWizard(models.TransientModel):
 
         inspection = self.env["asset.inspection"].create({
             "ticket_id": self.ticket_id.id,
+            "asset_id": self.ticket_id.asset_id.id if self.ticket_id.asset_id else False,
             "maintenance_team_id": self.maintenance_team_id.id or False,
             "employee_ids": [(6, 0, self.employee_ids.ids)],
             "scheduled_date": self.scheduled_date,
             "notes": self.notes,
             "state": "scheduled",
-            # flat fields
             "inspection_type": self.inspection_type,
             "flat_asset_id": self.flat_asset_id.id if self.flat_asset_id else False,
             "resident_name": self.resident_name,
@@ -322,7 +304,6 @@ class AssetInspectionWizard(models.TransientModel):
             "checklist_template_id": self.checklist_template_id.id if self.checklist_template_id else False,
         })
 
-        # Auto-populate labor lines
         employees = self.env["hr.employee"]
         if self.maintenance_team_id:
             team = self.maintenance_team_id
@@ -348,11 +329,9 @@ class AssetInspectionWizard(models.TransientModel):
                 "description": "",
             }) for emp in employees]})
 
-        # Load flat checklist from template
         if self.inspection_type == "flat" and self.checklist_template_id:
             inspection.action_load_checklist()
 
-        # Update helpdesk ticket stage
         under_inspection_stage = self.env["helpdesk.stage"].search(
             [("name", "=", "Under Inspection")], limit=1
         )
@@ -398,8 +377,6 @@ class AssetInspectionWizard(models.TransientModel):
         }
 
 
-
-
 class AssetInspectionWizardScheduleLine(models.TransientModel):
     _name = "asset.inspection.wizard.schedule.line"
     _description = "Team Schedule Preview Line"
@@ -423,5 +400,4 @@ class AssetInspectionWizardScheduleLine(models.TransientModel):
     scheduled_date = fields.Datetime(string="Scheduled", readonly=True)
     state = fields.Char(string="Status", readonly=True)
 
-    # Used for color decoration in the view
     color_state = fields.Char(readonly=True)

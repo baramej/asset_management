@@ -118,11 +118,7 @@ class AssetMaintenanceTask(models.Model):
         self.checklist_line_ids = lines
 
     def _load_checklist_from_template(self, template=None):
-        """
-        Populate checklist lines from the given template (or auto-detect
-        from service_type if no template is passed).
-        Existing lines are replaced.
-        """
+
         self.ensure_one()
         if not template:
             if not self.service_type:
@@ -173,7 +169,6 @@ class AssetMaintenanceTask(models.Model):
                         "Supervisor sign-off was rejected. "
                         "Please address the issues and request sign-off again."
                     ))
-                # not yet requested → auto-request it
                 rec.action_request_supervisor_signoff()
                 raise UserError(_(
                     "Supervisor sign-off is required. "

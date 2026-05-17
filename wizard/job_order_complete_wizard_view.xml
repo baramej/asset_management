@@ -9,7 +9,15 @@
                     <field name="line_ids" nolabel="1">
                         <list editable="bottom">
                             <field name="material_line_id" invisible="1"/>
-                            <field name="product_id"/>
+                            <field name="product_id"
+                                   options="{'no_create': True}"/>
+                            <field name="product_uom_id" readonly="1"/>
+                            <field name="qty_available"
+                                   readonly="1"
+                                   decoration-danger="qty_available == 0"
+                                   decoration-warning="qty_available &lt; quantity_requested"
+                                   decoration-success="qty_available &gt;= quantity_requested"/>
+                            <field name="quantity_requested"/>
                             <field name="is_consumable"
                                    string="Consumable"
                                    widget="boolean_toggle"
@@ -17,7 +25,6 @@
                                    decoration-success="is_consumable == True"
                                    decoration-warning="is_consumable == False"/>
                             <field name="description"/>
-                            <field name="quantity_requested"/>
                         </list>
                     </field>
                 </group>
@@ -38,26 +45,51 @@
         <field name="arch" type="xml">
             <form string="End Work — Confirm Materials">
                 <field name="job_order_id" invisible="1"/>
+                <field name="has_non_consumables" invisible="1"/>
+
                 <group string="Material Consumption" invisible="not line_ids">
                     <field name="line_ids" nolabel="1">
                         <list editable="bottom">
                             <field name="material_line_id" invisible="1"/>
                             <field name="product_id" readonly="1"/>
-                            <field name="quantity_requested" readonly="1" string="Planned"/>
-                            <field name="quantity_used" string="Used"
-                                   invisible="consumption_state == 'returned'"/>
+                            <field name="is_consumable"
+                                   readonly="1"
+                                   widget="boolean_toggle"
+                                   string="Consumable"
+                                   decoration-success="is_consumable == True"
+                                   decoration-warning="is_consumable == False"/>
+                            <field name="quantity_requested"
+                                   readonly="1"
+                                   string="Planned"/>
+                            <field name="quantity_used"
+                                   string="Used"
+                                   readonly="not is_consumable"
+                                   invisible="not is_consumable"/>
                             <field name="consumption_state"
+                                   string="Status"
                                    widget="badge"
+                                   readonly="not is_consumable"
                                    decoration-success="consumption_state == 'consumed'"
-                                   decoration-warning="consumption_state == 'returned'"/>
+                                   decoration-warning="consumption_state == 'returned'"
+                                   decoration-secondary="consumption_state == 'pending_return'"/>
                         </list>
                     </field>
-                </group>
-                <group invisible="line_ids">
-                    <div class="alert alert-info" role="alert">
-                        No approved materials to confirm for this job.
+
+                    <div class="alert alert-info" role="alert"
+                         invisible="not has_non_consumables">
+                        <i class="fa fa-info-circle"/>
+                        Non-consumable equipment (shown with <b>Pending Return</b> status)
+                        will be automatically flagged for return to the store after work ends.
+                        The Storekeeper will be notified.
                     </div>
                 </group>
+
+                <group invisible="line_ids">
+                    <div class="alert alert-info" role="alert">
+                        No collected materials to confirm for this job.
+                    </div>
+                </group>
+
                 <group string="Technician Notes">
                     <field name="technician_notes" nolabel="1"
                            placeholder="Describe work performed..."/>
@@ -104,22 +136,28 @@
         <field name="model">asset.job.approve.wizard</field>
         <field name="arch" type="xml">
             <form string="Approve Job Order">
-                <field name="job_order_id" invisible="1"/>
-                <group string="Sign Off">
-                    <field name="signed_by_name"
-                           placeholder="Enter your full name to approve..."/>
-                    <field name="signature" widget="signature"/>
-                </group>
-                <group string="Approval Notes">
-                    <field name="approval_notes" nolabel="1"
-                           placeholder="Any notes on approval..."/>
-                </group>
+                <sheet>
+                    <!-- Show a note when customer_approval is off -->
+                    <div class="alert alert-info"
+                         invisible="job_order_id.customer_approval != False"
+                         role="alert">
+                        <strong>Note:</strong>
+                        Customer approval is not required for this job order.
+                        This signature will both approve <em>and</em> close the job order in one step.
+                    </div>
+                    <group>
+                        <field name="customer_approval" invisible="1"/>
+                        <field name="job_order_id" invisible="1"/>
+                        <field name="signed_by_name" placeholder="Enter full name..."/>
+                        <field name="signature" widget="signature" required="1"/>
+                        <field name="approval_notes" placeholder="Optional notes..."/>
+                    </group>
+                </sheet>
                 <footer>
-                    <button name="action_confirm"
-                            string="Approve Job Order"
-                            type="object"
-                            class="btn-success"/>
-                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                    <button string="Confirm" type="object"
+                            name="action_confirm" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary"
+                            special="cancel"/>
                 </footer>
             </form>
         </field>
