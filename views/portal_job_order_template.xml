@@ -1,0 +1,300 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="portal_job_order_sign_page" name="Job Order Portal Sign">
+        <t t-call="portal.portal_layout">
+            <div class="container mt-4 mb-5">
+                <div class="card">
+                    <div class="card-header bg-dark text-white">
+                        <h3 class="mb-0">
+                            <i class="fa fa-file-text-o mr-2"/>
+                            Job Order —
+                            <t t-esc="job_order.name"/>
+                        </h3>
+                    </div>
+
+                    <div class="card-body">
+
+                        <!-- Status banner -->
+                        <div t-attf-class="alert alert-{{ 'success' if job_order.signature_state == 'signed' else 'info' }}">
+                            <strong>Status:</strong>
+                            <t t-if="job_order.signature_state == 'pending'">Pending Signature</t>
+                            <t t-elif="job_order.signature_state == 'sent'">Awaiting Your Signature</t>
+                            <t t-elif="job_order.signature_state == 'signed'">Signed — Thank You!</t>
+                        </div>
+
+                        <!-- Job / Asset info -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <h5>Job Order Information</h5>
+                                <p>
+                                    <strong>Reference:</strong>
+                                    <t t-esc="job_order.name"/>
+                                    <br/>
+                                    <strong>Scheduled Date:</strong>
+                                    <t t-esc="job_order.scheduled_date"/>
+                                </p>
+                            </div>
+                            <div class="col-md-6">
+                                <h5>Asset Information</h5>
+                                <p>
+                                    <strong>Asset:</strong>
+                                    <t t-if="job_order.asset_id">
+                                        <t t-esc="job_order.asset_id.name"/>
+                                    </t>
+                                    <t t-else="">N/A</t>
+                                    <br/>
+                                    <strong>Maintenance Team:</strong>
+                                    <t t-if="job_order.maintenance_team_id">
+                                        <t t-esc="job_order.maintenance_team_id.name"/>
+                                    </t>
+                                    <t t-else="">N/A</t>
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Findings -->
+                        <h5>Findings</h5>
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th style="width:40%">Description</th>
+                                    <th style="width:20%">Severity</th>
+                                    <th style="width:20%">Status</th>
+                                    <th style="width:20%">Photo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-foreach="job_order.finding_line_ids" t-as="f">
+                                    <tr>
+                                        <td>
+                                            <t t-esc="f.description"/>
+                                        </td>
+                                        <td>
+                                            <t t-esc="f.severity or '—'"/>
+                                        </td>
+                                        <td>
+                                            <span t-attf-class="badge badge-{{ 'success' if f.status == 'done' else ('danger' if f.status == 'cannot_fix' else 'warning') }}">
+                                                <t t-esc="f.status"/>
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <t t-if="f.image">
+                                                <img t-att-src="image_data_uri(f.image)"
+                                                     class="img-thumbnail"
+                                                     style="max-width:100px;height:auto;"/>
+                                            </t>
+                                            <t t-else="">
+                                                <span class="text-muted">—</span>
+                                            </t>
+                                        </td>
+                                    </tr>
+                                </t>
+                            </tbody>
+                        </table>
+
+                        <!-- Materials -->
+                        <h5 class="mt-4">Materials Used</h5>
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Qty Planned</th>
+                                    <th>Qty Used</th>
+                                    <th>Unit</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-foreach="job_order.material_line_ids" t-as="m">
+                                    <tr>
+                                        <td>
+                                            <t t-esc="m.product_id.name"/>
+                                        </td>
+                                        <td>
+                                            <t t-esc="m.quantity_requested"/>
+                                        </td>
+                                        <td>
+                                            <t t-esc="m.quantity_used"/>
+                                        </td>
+                                        <td>
+                                            <t t-esc="m.uom_id.name or '—'"/>
+                                        </td>
+                                    </tr>
+                                </t>
+                            </tbody>
+                        </table>
+
+                        <!-- Time Logs -->
+                        <h5 class="mt-4">Labour</h5>
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Technician</th>
+                                    <th>Date</th>
+                                    <th>Hours</th>
+                                    <th>Activity</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-foreach="job_order.technician_log_ids" t-as="l">
+                                    <tr>
+                                        <td>
+                                            <t t-esc="l.employee_id.name or '—'"/>
+                                        </td>
+                                        <td>
+                                            <t t-esc="l.date"/>
+                                        </td>
+                                        <td>
+                                            <t t-esc="l.hours"/>
+                                        </td>
+                                        <td>
+                                            <t t-esc="l.activity or '—'"/>
+                                        </td>
+                                    </tr>
+                                </t>
+                            </tbody>
+                        </table>
+
+                        <!-- Signature form — only when not yet signed -->
+                        <div class="mt-5" t-if="job_order.signature_state != 'signed'">
+                            <h5>Customer Signature</h5>
+                            <p class="text-muted">
+                                Please sign below to confirm the work performed.
+                            </p>
+
+                            <div class="form-group">
+                                <label for="signed_by_name">Your Full Name *</label>
+                                <input type="text" class="form-control" id="signed_by_name"
+                                       placeholder="Enter your full name" required="required"/>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Signature *</label>
+                                <div id="signature-pad" class="border" style="touch-action:none;">
+                                    <canvas style="width:100%;height:200px;"/>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-secondary mt-2"
+                                        id="clear-signature">Clear Signature
+                                </button>
+                            </div>
+
+                            <button type="button" class="btn btn-primary btn-lg mt-3"
+                                    id="submit-signature">
+                                <i class="fa fa-check mr-1"/>
+                                Sign and Confirm
+                            </button>
+                        </div>
+
+                        <!-- Already signed block -->
+                        <div class="mt-5" t-if="job_order.signature_state == 'signed'">
+                            <h5>Signature</h5>
+                            <p>
+                                <strong>Signed by:</strong>
+                                <t t-esc="job_order.portal_signed_by"/>
+                                <br/>
+                                <strong>Signed on:</strong>
+                                <t t-esc="job_order.portal_signed_on"
+                                   t-options="{'widget': 'datetime'}"/>
+                            </p>
+                            <t t-if="job_order.portal_signature">
+                                <img t-attf-src="data:image/png;base64,{{ job_order.portal_signature.decode('utf-8') if job_order.portal_signature else '' }}"
+                                     class="border"
+                                     style="max-width:400px;"/>
+                            </t>
+                        </div>
+
+                    </div><!-- /card-body -->
+                </div><!-- /card -->
+            </div>
+
+            <!-- Hidden context for JS -->
+            <div id="jo_ctx"
+                 t-att-data-id="job_order.id"
+                 t-att-data-token="access_token"
+                 style="display:none;"/>
+
+            <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"/>
+            <script type="text/javascript"><![CDATA[
+(function () {
+    document.addEventListener('DOMContentLoaded', function () {
+        var container = document.getElementById('signature-pad');
+        if (!container) return;
+
+        var ctxEl = document.getElementById('jo_ctx');
+        if (!ctxEl) return;
+        var jobId = ctxEl.dataset.id;
+        var token  = ctxEl.dataset.token;
+
+        var canvas = container.querySelector('canvas');
+
+        function resizeCanvas() {
+            var ratio = Math.max(window.devicePixelRatio || 1, 1);
+            var w = container.clientWidth;
+            canvas.width  = w * ratio;
+            canvas.height = 200 * ratio;
+            canvas.style.width  = w + 'px';
+            canvas.style.height = '200px';
+            canvas.getContext('2d').scale(ratio, ratio);
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        var signaturePad = new SignaturePad(canvas, { backgroundColor: 'rgb(255,255,255)' });
+
+        var clearBtn = document.getElementById('clear-signature');
+        if (clearBtn) clearBtn.addEventListener('click', function () { signaturePad.clear(); });
+
+        var submitBtn = document.getElementById('submit-signature');
+        if (!submitBtn) return;
+
+        submitBtn.addEventListener('click', function () {
+            var signedBy = (document.getElementById('signed_by_name').value || '').trim();
+            if (!signedBy) { alert('Please enter your name'); return; }
+            if (signaturePad.isEmpty()) { alert('Please provide your signature'); return; }
+
+            var base64 = signaturePad.toDataURL('image/png').split(',')[1];
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Processing...';
+
+            var payload = {
+                jsonrpc: '2.0',
+                method: 'call',
+                params: {
+                    access_token: token,
+                    signature: 'data:image/png;base64,' + base64,
+                    signed_by: signedBy,
+                }
+            };
+
+            fetch('/my/job_order/' + jobId + '/sign', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                credentials: 'same-origin',
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (resp) {
+                if (resp && resp.result && resp.result.success) {
+                    window.location.reload();
+                } else {
+                    var msg =
+                        (resp && resp.result && resp.result.error) ||
+                        (resp && resp.error && resp.error.data && resp.error.data.message) ||
+                        'Unknown error';
+                    alert('Error: ' + msg);
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fa fa-check"></i> Sign and Confirm';
+                }
+            })
+            .catch(function (err) {
+                alert('Network error: ' + err);
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fa fa-check"></i> Sign and Confirm';
+            });
+        });
+    });
+})();
+            ]]></script>
+        </t>
+    </template>
+</odoo>

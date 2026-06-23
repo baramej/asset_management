@@ -12,7 +12,6 @@ class AssetMaintenanceContract(models.Model):
     _description = "AMC Contract"
     _inherit = ["mail.thread", "mail.activity.mixin"]
 
-    # ── Identity ──────────────────────────────────────────────────────────
     name = fields.Char(string="Contract Name", required=True, tracking=True)
     reference = fields.Char(string="Contract Reference / Number", tracking=True)
     customer_id = fields.Many2one(
@@ -24,7 +23,6 @@ class AssetMaintenanceContract(models.Model):
         tracking=True,
     )
 
-    # ── Dates & Status ────────────────────────────────────────────────────
     start_date = fields.Date(required=True, tracking=True)
     end_date = fields.Date(required=True, tracking=True)
     state = fields.Selection([
@@ -41,7 +39,6 @@ class AssetMaintenanceContract(models.Model):
         default=30,
     )
 
-    # ── Contract Type & Coverage ──────────────────────────────────────────
     contract_type = fields.Selection([
         ("pm_only", "PM Only — Scheduled visits only"),
         ("pm_plus_corrective", "PM + Corrective — Visits, no parts"),
@@ -50,7 +47,6 @@ class AssetMaintenanceContract(models.Model):
         ("pay_per_task", "Pay per Task — Nothing included"),
     ], default="pm_only", required=True, tracking=True)
 
-    # What's covered
     labour_covered = fields.Boolean(
         string="Labour / Visits Covered",
         compute="_compute_coverage_flags",
@@ -62,7 +58,6 @@ class AssetMaintenanceContract(models.Model):
         ("all", "All parts included"),
     ], compute="_compute_coverage_flags", store=True)
 
-    # Explicit inclusions / exclusions (free text)
     inclusions = fields.Text(
         string="What's Included",
         help="Describe what is covered under this contract.",
@@ -72,12 +67,10 @@ class AssetMaintenanceContract(models.Model):
         help="Describe what is NOT covered and will be billed separately.",
     )
 
-    # ── Schedule ─────────────────────────────────────────────────────────
     visits_per_year = fields.Integer(default=4, string="Scheduled Visits / Year")
     pm_frequency_days = fields.Integer(default=90, string="PM Frequency (days)")
     next_service_date = fields.Date(string="Next Scheduled Service")
 
-    # ── Financial ────────────────────────────────────────────────────────
     contract_value = fields.Monetary(
         string="Annual Contract Value", currency_field="currency_id"
     )
@@ -91,7 +84,6 @@ class AssetMaintenanceContract(models.Model):
         ("monthly", "Monthly"),
     ], string="Payment Terms")
 
-    # ── Assets & Service Visits ───────────────────────────────────────────
     contract_line_ids = fields.One2many(
         "asset.maintenance.contract.line", "contract_id",
         string="Assets Under Contract"
@@ -105,13 +97,40 @@ class AssetMaintenanceContract(models.Model):
     visit_count = fields.Integer(compute="_compute_counts")
     visits_completed = fields.Integer(compute="_compute_counts")
 
-    # ── Notes & Attachments ───────────────────────────────────────────────
     notes = fields.Text(string="Internal Notes")
     terms_and_conditions = fields.Text(string="Terms & Conditions Summary")
 
     is_active = fields.Boolean(default=True)
 
-    # ── Compute ───────────────────────────────────────────────────────────
+    contractor_portal_token = fields.Char(
+        string="Contractor Portal Token",
+        copy=False,
+        readonly=True,
+    )
+
+    def _get_or_create_contractor_token(self):
+        self.ensure_one()
+        if not self.contractor_portal_token:
+            import uuid
+            self.contractor_portal_token = str(uuid.uuid4())
+        return self.contractor_portal_token
+
+    def action_copy_contractor_link(self):
+        self.ensure_one()
+        token = self._get_or_create_contractor_token()
+        base_url = self.env["ir.config_parameter"].sudo().get_param("web.base.url", "")
+        url = f"{base_url}/contract/{self.id}/submit-visit?token={token}"
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": "Contractor Portal Link",
+                "message": url,
+                "type": "info",
+                "sticky": True,
+            },
+        }
+
 
     @api.depends("start_date", "end_date", "is_active", "renewal_reminder_days")
     def _compute_state(self):
@@ -175,7 +194,6 @@ class AssetMaintenanceContract(models.Model):
                 )
             )
 
-    # ── Coverage summary helper ───────────────────────────────────────────
 
     def get_coverage_summary(self):
         self.ensure_one()
@@ -187,7 +205,6 @@ class AssetMaintenanceContract(models.Model):
         labour = "Labour included" if self.labour_covered else "Labour billed separately"
         return f"{labour} | {parts_label}"
 
-    # ── Actions ───────────────────────────────────────────────────────────
 
     def action_activate(self):
         for rec in self:
@@ -248,18 +265,16 @@ class AssetMaintenanceContractLine(models.Model):
     contract_id = fields.Many2one(
         "asset.maintenance.contract", required=True, ondelete="cascade"
     )
-    asset_id = fields.Many2one("account.asset", required=True, string="Asset")
+    asset_id = fields.Many2one("account.asset", required=False, string="Asset")
     asset_location = fields.Char(
         related="asset_id.location_id.name", string="Location", readonly=True
     )
 
-    # Schedule tracking per asset
     next_pm_date = fields.Date(string="Next PM Date")
     last_pm_date = fields.Date(string="Last PM Date")
     remaining_visits = fields.Integer(string="Remaining Visits")
     due_status = fields.Char(compute="_compute_due_status", store=False)
 
-    # Coverage notes specific to this asset (can differ from contract default)
     special_terms = fields.Text(
         string="Special Terms for this Asset",
         help="Any coverage exceptions or extra terms that apply to this specific asset only.",
@@ -316,6 +331,124 @@ class AssetContractServiceVisit(models.Model):
         compute="_compute_contract_asset_ids",
         string="Contract Assets (domain helper)",
     )
+
+    access_token = fields.Char(string="Portal Token", copy=False, readonly=True)
+    portal_state = fields.Selection([
+        ("pending", "Awaiting Contractor Report"),
+        ("submitted", "Report Submitted"),
+        ("reviewed", "Reviewed"),
+    ], default="pending", tracking=True, string="Portal Status")
+
+    labour_line_ids = fields.One2many(
+        "asset.contract.visit.labour.line", "visit_id", string="Labour / Technicians"
+    )
+    material_line_ids = fields.One2many(
+        "asset.contract.visit.material.line", "visit_id", string="Materials Used"
+    )
+    portal_attachment_ids = fields.Many2many(
+        "ir.attachment",
+        "contract_visit_portal_attachment_rel",
+        "visit_id",
+        "attachment_id",
+        string="Contractor Documents",
+    )
+    total_labour_cost = fields.Float(compute="_compute_totals", store=True)
+    total_material_cost = fields.Float(compute="_compute_totals", store=True)
+    total_cost = fields.Float(compute="_compute_totals", store=True)
+
+    contractor_notes = fields.Text(string="Contractor Notes / Remarks")
+    submitted_by_name = fields.Char(string="Submitted By", readonly=True)
+    submitted_on = fields.Datetime(string="Submitted On", readonly=True)
+
+    @api.depends("labour_line_ids.subtotal", "material_line_ids.subtotal")
+    def _compute_totals(self):
+        for rec in self:
+            rec.total_labour_cost = sum(rec.labour_line_ids.mapped("subtotal"))
+            rec.total_material_cost = sum(rec.material_line_ids.mapped("subtotal"))
+            rec.total_cost = rec.total_labour_cost + rec.total_material_cost
+
+    def _get_or_create_portal_token(self):
+        self.ensure_one()
+        if not self.access_token:
+            import uuid
+            self.access_token = str(uuid.uuid4())
+        return self.access_token
+
+    def action_send_contractor_portal_link(self):
+        self.ensure_one()
+        token = self._get_or_create_portal_token()
+        base_url = self.env["ir.config_parameter"].sudo().get_param("web.base.url", "")
+        portal_url = f"{base_url}/contract/visit/{self.id}/report?token={token}"
+
+        vendor = self.contract_id.vendor_id
+        if not vendor or not vendor.email:
+            raise UserError(_("Please set a Service Provider with an email on the contract before sending."))
+
+        body_html = f"""
+        <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;
+                    border:1px solid #e0e0e0;border-radius:6px;overflow:hidden;">
+            <div style="background-color:#1a1a2e;padding:24px 32px;">
+                <h2 style="color:#ffffff;margin:0;">Service Visit Report — Submission Required</h2>
+            </div>
+            <div style="padding:24px 32px;background-color:#ffffff;">
+                <p style="color:#333;font-size:15px;">Dear {vendor.name},</p>
+                <p style="color:#333;font-size:15px;">
+                    Please submit your service visit report for the following job:
+                </p>
+                <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+                    <tr>
+                        <td style="padding:8px 12px;background:#f5f5f5;font-weight:bold;width:35%;border:1px solid #ddd;">Contract</td>
+                        <td style="padding:8px 12px;border:1px solid #ddd;">{self.contract_id.name}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px 12px;background:#f5f5f5;font-weight:bold;border:1px solid #ddd;">Visit Date</td>
+                        <td style="padding:8px 12px;border:1px solid #ddd;">{self.visit_date}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px 12px;background:#f5f5f5;font-weight:bold;border:1px solid #ddd;">Asset</td>
+                        <td style="padding:8px 12px;border:1px solid #ddd;">{self.asset_id.name if self.asset_id else 'N/A'}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px 12px;background:#f5f5f5;font-weight:bold;border:1px solid #ddd;">Visit Type</td>
+                        <td style="padding:8px 12px;border:1px solid #ddd;">{dict(self._fields['visit_type'].selection).get(self.visit_type, self.visit_type)}</td>
+                    </tr>
+                </table>
+                <div style="text-align:center;margin:28px 0;">
+                    <a href="{portal_url}"
+                       style="background-color:#1a1a2e;color:white;padding:12px 28px;
+                              border-radius:4px;text-decoration:none;font-size:15px;font-weight:bold;">
+                        Submit Visit Report
+                    </a>
+                </div>
+                <p style="color:#888;font-size:13px;text-align:center;">
+                    This link is unique to this visit. Please do not share it.
+                </p>
+            </div>
+            <div style="background-color:#f5f5f5;padding:14px 32px;text-align:center;">
+                <p style="color:#aaa;font-size:12px;margin:0;">
+                    Automated notification — Asset Management System.
+                </p>
+            </div>
+        </div>"""
+
+        self.env["mail.mail"].sudo().create({
+            "subject": f"Submit Service Report — {self.contract_id.name} / {self.visit_date}",
+            "body_html": body_html,
+            "email_to": vendor.email,
+            "author_id": self.env.user.partner_id.id,
+            "auto_delete": False,
+            "state": "outgoing",
+        }).send(raise_exception=False)
+
+        self.message_post(
+            body=_(
+                "Contractor portal link sent to <b>%(name)s</b> (%(email)s).<br/>"
+                "URL: <a href='%(url)s'>%(url)s</a>",
+                name=vendor.name, email=vendor.email, url=portal_url,
+            ),
+            subtype_xmlid="mail.mt_note",
+        )
+        self.write({"portal_state": "pending"})
 
     @api.depends("contract_id", "contract_id.contract_line_ids.asset_id")
     def _compute_contract_asset_ids(self):
@@ -375,7 +508,6 @@ class AssetContractServiceVisit(models.Model):
     next_visit_date = fields.Date(string="Next Visit Recommended")
     report_ref = fields.Char(string="Service Report Reference")
 
-    # Attachments count (smart button helper)
     attachment_count = fields.Integer(compute="_compute_attachment_count")
 
     @api.depends()
@@ -387,12 +519,19 @@ class AssetContractServiceVisit(models.Model):
                 ("res_id", "=", rec.id),
             ])
 
+    def action_mark_reviewed(self):
+        self.ensure_one()
+        self.write({"portal_state": "reviewed"})
+        self.message_post(
+            body=_("Contractor report reviewed by <b>%s</b>.") % self.env.user.name,
+            subtype_xmlid="mail.mt_note",
+        )
+
     def action_mark_completed(self):
         self.write({"status": "completed"})
         self.message_post(
             body=_("Visit marked as completed by %s.") % self.env.user.name
         )
-        # Update last_pm_date on the contract line for this asset
         if self.asset_id and self.contract_id:
             line = self.env["asset.maintenance.contract.line"].search([
                 ("contract_id", "=", self.contract_id.id),
@@ -420,6 +559,39 @@ class AssetContractServiceVisit(models.Model):
                 "default_res_id": self.id,
             },
         }
+
+class AssetContractVisitLabourLine(models.Model):
+    _name = "asset.contract.visit.labour.line"
+    _description = "Service Visit — Labour Line"
+
+    visit_id     = fields.Many2one("asset.contract.service.visit", required=True, ondelete="cascade")
+    technician   = fields.Char(string="Technician Name", required=True)
+    role         = fields.Char(string="Role / Skill")
+    hours        = fields.Float(string="Hours", default=1.0)
+    hourly_rate  = fields.Float(string="Rate / Hour")
+    subtotal     = fields.Float(compute="_compute_subtotal", store=True)
+
+    @api.depends("hours", "hourly_rate")
+    def _compute_subtotal(self):
+        for rec in self:
+            rec.subtotal = rec.hours * rec.hourly_rate
+
+
+class AssetContractVisitMaterialLine(models.Model):
+    _name = "asset.contract.visit.material.line"
+    _description = "Service Visit — Material Line"
+
+    visit_id     = fields.Many2one("asset.contract.service.visit", required=True, ondelete="cascade")
+    description  = fields.Char(string="Item / Material", required=True)
+    quantity     = fields.Float(default=1.0)
+    unit         = fields.Char(string="Unit", default="pcs")
+    unit_price   = fields.Float(string="Unit Price")
+    subtotal     = fields.Float(compute="_compute_subtotal", store=True)
+
+    @api.depends("quantity", "unit_price")
+    def _compute_subtotal(self):
+        for rec in self:
+            rec.subtotal = rec.quantity * rec.unit_price
 
 
 class AssetContractSparePartLine(models.Model):
@@ -453,7 +625,7 @@ class AssetMaintenanceTask(models.Model):
     _inherit = ["mail.thread", "mail.activity.mixin"]
 
     name = fields.Char(required=True, tracking=True)
-    asset_id = fields.Many2one("account.asset", required=True)
+    asset_id = fields.Many2one("account.asset", required=False)
     plan_id = fields.Many2one("asset.maintenance.plan")
     sale_order_id = fields.Many2one("sale.order")
 
@@ -511,37 +683,6 @@ class AssetMaintenanceTask(models.Model):
         readonly=True
     )
 
-    inspection_id = fields.Many2one(
-        "asset.inspection",
-        string="Inspection",
-        readonly=True,
-        store=True,
-    )
-
-    inspection_count = fields.Integer(
-        string="Inspections",
-        compute="_compute_inspection_count",
-    )
-
-    def action_view_inspection(self):
-        self.ensure_one()
-        if not self.inspection_id:
-            raise UserError(_("No inspection linked to this maintenance task."))
-        return {
-            "name": _("Inspection"),
-            "type": "ir.actions.act_window",
-            "res_model": "asset.inspection",
-            "view_mode": "form",
-            "res_id": self.inspection_id.id,
-            "views": [(False, "form")],
-            "target": "current",
-        }
-
-    @api.depends("inspection_id")
-    def _compute_inspection_count(self):
-        for rec in self:
-            rec.inspection_count = 1 if rec.inspection_id else 0
-
     consumed_part_line_ids = fields.One2many(
         "asset.consumed.part.line",
         "task_id",
@@ -558,7 +699,7 @@ class AssetMaintenanceTask(models.Model):
         ("corrective", "Corrective / Ad-hoc"),
     ], default="preventive")
 
-    assigned_user_id = fields.Many2one("res.users")
+    assigned_user_id = fields.Many2one("hr.employee")
 
     state = fields.Selection([
         ("draft", "New"),
@@ -682,6 +823,13 @@ class AssetMaintenanceTask(models.Model):
         })
         self.job_order_id = job.id
         self.state = "assigned"
+
+        self.action_notify_job_order_issued()
+
+        # Migrate flat checklist lines from the task into the job order
+        if self.job_type == "flat":
+            job.action_load_checklist_to_job_order()
+
         return self._open_job_order()
 
     def _open_job_order(self):
@@ -708,6 +856,23 @@ class AssetMaintenanceTask(models.Model):
         tasks = super().create(vals_list)
 
         for rec in tasks:
+
+            if not rec.responsible_employee_id:
+                rule = self.env["asset.task.assignment.rule"].find_matching_rule(rec)
+                if rule:
+                    rec.responsible_employee_id = rule.responsible_employee_id.id
+                    rule.sudo().write({"match_count": rule.match_count + 1})
+                    rec.message_post(
+                        body=_(
+                            "Responsible auto-assigned to <b>%(name)s</b> "
+                            "via rule <i>%(rule)s</i>.",
+                            name=rule.responsible_employee_id.name,
+                            rule=rule.name,
+                        ),
+                        subtype_xmlid="mail.mt_note",
+                    )
+                    # Send assignment notification email
+                    rec.action_notify_responsible_assigned()
 
             if rec.name.startswith("Maintenance from Helpdesk -"):
                 ticket_name = rec.name.replace("Maintenance from Helpdesk -", "").strip()
@@ -817,8 +982,6 @@ class AssetMaintenanceTask(models.Model):
         return True
 
     def _handle_done_side_effects(self):
-        """Helpdesk stage update, PM date update, stock picking — called from
-        action_done and also when a job order closes the task."""
         task = self
 
         if task.helpdesk_ticket_id:
@@ -964,13 +1127,446 @@ class AssetMaintenanceTask(models.Model):
 
         self.consumed_part_line_ids = lines
 
+    responsible_employee_id = fields.Many2one(
+        "hr.employee",
+        string="Responsible",
+        tracking=True,
+        help="Employee responsible for following up and creating the job order.",
+    )
+    responsible_email = fields.Char(
+        string="Responsible Email",
+        compute="_compute_responsible_email",
+        store=True,
+    )
+
+    @api.depends("responsible_employee_id")
+    def _compute_responsible_email(self):
+        for rec in self:
+            emp = rec.responsible_employee_id
+            rec.responsible_email = emp.work_email or "" if emp else ""
+
+    def _send_responsible_email(self, subject, body_html):
+        """Send email to the responsible employee. Silently skips if no email."""
+        self.ensure_one()
+        email = self.responsible_email
+        if not email:
+            return
+        mail = self.env["mail.mail"].sudo().create({
+            "subject": subject,
+            "body_html": body_html,
+            "email_to": email,
+            "author_id": self.env.user.partner_id.id,
+            "auto_delete": False,
+            "state": "outgoing",
+        })
+        mail.send(raise_exception=False)
+
+    def _build_task_email_body(self, heading, intro_line, color="#1a1a2e", extra_rows=""):
+        """Shared HTML template for all task notification emails."""
+        self.ensure_one()
+        base = self.env["ir.config_parameter"].sudo().get_param("web.base.url", "")
+        action = self.env.ref(
+            "asset_management.action_asset_maintenance_task", raise_if_not_found=False
+        )
+        action_id = action.id if action else "asset_maintenance_task"
+        task_url = f"{base}/odoo/action-{action_id}/{self.id}"
+
+        responsible_name = (
+            self.responsible_employee_id.name if self.responsible_employee_id else "—"
+        )
+        scheduled = str(self.scheduled_date)[:16] if self.scheduled_date else "Not set"
+        request = str(self.request_date)[:16] if self.request_date else "—"
+
+        return f"""
+        <div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;
+                    border:1px solid #e0e0e0;border-radius:6px;overflow:hidden;">
+            <div style="background-color:{color};padding:22px 30px;">
+                <h2 style="color:#fff;margin:0;">{heading}</h2>
+            </div>
+            <div style="padding:24px 30px;background:#fff;">
+                <p style="color:#333;font-size:15px;">{intro_line}</p>
+                <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+                    <tr>
+                        <td style="padding:8px 12px;background:#f5f5f5;font-weight:bold;width:38%;border:1px solid #ddd;">Task</td>
+                        <td style="padding:8px 12px;border:1px solid #ddd;">{self.name}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px 12px;background:#f5f5f5;font-weight:bold;border:1px solid #ddd;">Asset</td>
+                        <td style="padding:8px 12px;border:1px solid #ddd;">{self.asset_id.name if self.asset_id else '—'}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px 12px;background:#f5f5f5;font-weight:bold;border:1px solid #ddd;">Type</td>
+                        <td style="padding:8px 12px;border:1px solid #ddd;">{dict(self._fields['maintenance_type'].selection).get(self.maintenance_type, '—')}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px 12px;background:#f5f5f5;font-weight:bold;border:1px solid #ddd;">Requested</td>
+                        <td style="padding:8px 12px;border:1px solid #ddd;">{request}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px 12px;background:#f5f5f5;font-weight:bold;border:1px solid #ddd;">Scheduled Date</td>
+                        <td style="padding:8px 12px;border:1px solid #ddd;">{scheduled}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px 12px;background:#f5f5f5;font-weight:bold;border:1px solid #ddd;">Responsible</td>
+                        <td style="padding:8px 12px;border:1px solid #ddd;">{responsible_name}</td>
+                    </tr>
+                    {extra_rows}
+                </table>
+                <div style="text-align:center;margin:24px 0;">
+                    <a href="{task_url}"
+                       style="background-color:{color};color:white;padding:12px 28px;
+                              border-radius:4px;text-decoration:none;font-size:15px;font-weight:bold;">
+                        Open Maintenance Task
+                    </a>
+                </div>
+            </div>
+            <div style="background:#f5f5f5;padding:12px 30px;text-align:center;">
+                <p style="color:#aaa;font-size:12px;margin:0;">
+                    Asset Management System — Automated Notification
+                </p>
+            </div>
+        </div>"""
+
+    def action_notify_responsible_assigned(self):
+        """Call after writing responsible_employee_id to notify them."""
+        self.ensure_one()
+        if not self.responsible_email:
+            return
+        emp_name = self.responsible_employee_id.name
+        body = self._build_task_email_body(
+            heading="Maintenance Task Assigned to You",
+            intro_line=f"Hello <b>{emp_name}</b>, you have been assigned as responsible for the following maintenance task.",
+            color="#00695C",
+        )
+        self._send_responsible_email(
+            subject=f"[Assigned] Maintenance Task — {self.name}",
+            body_html=body,
+        )
+        self.message_post(
+            body=_(
+                "Assignment notification sent to responsible employee "
+                "<b>%(name)s</b> (%(email)s).",
+                name=emp_name,
+                email=self.responsible_email,
+            ),
+            subtype_xmlid="mail.mt_note",
+        )
+
+    def write(self, vals):
+        old_responsible = {rec.id: rec.responsible_employee_id.id for rec in self}
+        result = super().write(vals)
+
+        # Re-run auto-assignment if team changed and no responsible set yet
+        if "maintenance_team_id" in vals:
+            for rec in self:
+                if not rec.responsible_employee_id:
+                    rule = self.env["asset.task.assignment.rule"].find_matching_rule(rec)
+                    if rule:
+                        rec.responsible_employee_id = rule.responsible_employee_id.id
+                        rule.sudo().write({"match_count": rule.match_count + 1})
+                        rec.message_post(
+                            body=_(
+                                "Responsible auto-assigned to <b>%(name)s</b> "
+                                "via rule <i>%(rule)s</i> (triggered by team change).",
+                                name=rule.responsible_employee_id.name,
+                                rule=rule.name,
+                            ),
+                            subtype_xmlid="mail.mt_note",
+                        )
+                        rec.action_notify_responsible_assigned()
+
+        # Existing responsible-change notification logic
+        if "responsible_employee_id" in vals:
+            for rec in self:
+                new_id = rec.responsible_employee_id.id
+                if new_id and new_id != old_responsible.get(rec.id):
+                    rec.action_notify_responsible_assigned()
+
+        return result
+
+    def action_notify_job_order_issued(self):
+        """Call after job order is created to notify responsible."""
+        self.ensure_one()
+        if not self.responsible_email or not self.job_order_id:
+            return
+        emp_name = self.responsible_employee_id.name if self.responsible_employee_id else "Team"
+        extra = f"""
+            <tr>
+                <td style="padding:8px 12px;background:#f5f5f5;font-weight:bold;border:1px solid #ddd;">Job Order</td>
+                <td style="padding:8px 12px;border:1px solid #ddd;">{self.job_order_id.name}</td>
+            </tr>"""
+        body = self._build_task_email_body(
+            heading="Job Order Created — Task In Progress",
+            intro_line=f"Hello <b>{emp_name}</b>, a job order has been issued for the maintenance task you are responsible for.",
+            color="#1565C0",
+            extra_rows=extra,
+        )
+        self._send_responsible_email(
+            subject=f"[Job Order Issued] {self.name}",
+            body_html=body,
+        )
+
+    @api.model
+    def cron_send_task_reminders(self):
+        """
+        Daily cron — sends 4 types of notifications to responsible employees:
+
+        1. No-action reminder  — task still draft 3+ days after request_date, no job order
+        2. Pre-schedule reminder — scheduled_date is in 3 days, still no job order
+        3. Overdue alert       — scheduled_date has passed, still draft/no job order
+        4. (Assignment & job-order-issued are event-driven, not cron)
+        """
+        from datetime import datetime, timedelta
+        today = fields.Datetime.now().date()
+        three_days_ago = fields.Datetime.now() - timedelta(days=3)
+        three_days_from_now_start = fields.Datetime.now() + timedelta(days=3)
+        three_days_from_now_end = fields.Datetime.now() + timedelta(days=4)
+
+        # ── Reminder 1: No action 3 days after request ──────────────────────────
+        no_action_tasks = self.search([
+            ("state", "=", "draft"),
+            ("job_order_id", "=", False),
+            ("request_date", "<=", three_days_ago),
+            ("responsible_employee_id", "!=", False),
+        ])
+        for task in no_action_tasks:
+            if not task.responsible_email:
+                continue
+            emp_name = task.responsible_employee_id.name
+            days_waiting = (fields.Datetime.now() - task.request_date).days
+            body = task._build_task_email_body(
+                heading="⏰ Reminder: Maintenance Task Awaiting Action",
+                intro_line=(
+                    f"Hello <b>{emp_name}</b>, this task has been open for "
+                    f"<b>{days_waiting} days</b> with no action taken. "
+                    f"Please review and create a job order."
+                ),
+                color="#E65100",
+            )
+            task._send_responsible_email(
+                subject=f"[Reminder] No Action — {task.name} ({days_waiting} days)",
+                body_html=body,
+            )
+            task.message_post(
+                body=_(
+                    "No-action reminder sent to <b>%(name)s</b> — "
+                    "%(days)d days since request with no job order.",
+                    name=emp_name,
+                    days=days_waiting,
+                ),
+                subtype_xmlid="mail.mt_note",
+            )
+
+        # ── Reminder 2: 3 days before scheduled date ─────────────────────────────
+        pre_schedule_tasks = self.search([
+            ("state", "in", ["draft", "assigned"]),
+            ("job_order_id", "=", False),
+            ("scheduled_date", ">=", three_days_from_now_start),
+            ("scheduled_date", "<", three_days_from_now_end),
+            ("responsible_employee_id", "!=", False),
+        ])
+        for task in pre_schedule_tasks:
+            if not task.responsible_email:
+                continue
+            emp_name = task.responsible_employee_id.name
+            body = task._build_task_email_body(
+                heading="📅 Reminder: Job Order Due in 3 Days",
+                intro_line=(
+                    f"Hello <b>{emp_name}</b>, the scheduled date for this task is "
+                    f"in <b>3 days</b> and no job order has been created yet. "
+                    f"Please create the job order as soon as possible."
+                ),
+                color="#1565C0",
+            )
+            task._send_responsible_email(
+                subject=f"[Reminder] Job Order Needed in 3 Days — {task.name}",
+                body_html=body,
+            )
+            task.message_post(
+                body=_(
+                    "Pre-schedule reminder sent to <b>%(name)s</b> — "
+                    "scheduled date is in 3 days, no job order yet.",
+                    name=emp_name,
+                ),
+                subtype_xmlid="mail.mt_note",
+            )
+
+        # ── Reminder 3: Overdue — scheduled date passed, no job order ───────────
+        overdue_tasks = self.search([
+            ("state", "in", ["draft", "assigned"]),
+            ("job_order_id", "=", False),
+            ("scheduled_date", "<", fields.Datetime.now()),
+            ("scheduled_date", "!=", False),
+            ("responsible_employee_id", "!=", False),
+        ])
+        for task in overdue_tasks:
+            if not task.responsible_email:
+                continue
+            emp_name = task.responsible_employee_id.name
+            days_overdue = (fields.Datetime.now() - task.scheduled_date).days
+            body = task._build_task_email_body(
+                heading="🚨 Overdue: Maintenance Task Past Scheduled Date",
+                intro_line=(
+                    f"Hello <b>{emp_name}</b>, this task is <b>{days_overdue} day(s) overdue</b>. "
+                    f"The scheduled date has passed and no job order has been created. "
+                    f"Immediate action is required."
+                ),
+                color="#B71C1C",
+            )
+            task._send_responsible_email(
+                subject=f"[OVERDUE] {days_overdue}d — {task.name}",
+                body_html=body,
+            )
+            task.message_post(
+                body=_(
+                    "Overdue alert sent to <b>%(name)s</b> — "
+                    "%(days)d day(s) past scheduled date, no job order.",
+                    name=emp_name,
+                    days=days_overdue,
+                ),
+                subtype_xmlid="mail.mt_note",
+            )
+
+class AssetTaskAssignmentRule(models.Model):
+    _name = "asset.task.assignment.rule"
+    _description = "Automatic Task Assignment Rule"
+    _order = "sequence, id"
+
+    name = fields.Char(string="Rule Name", required=True)
+    sequence = fields.Integer(default=10, help="Lower sequence = higher priority.")
+    active = fields.Boolean(default=True)
+
+    # ── Matching Criteria ────────────────────────────────────────────────────
+    maintenance_type = fields.Selection([
+        ("preventive", "Preventive"),
+        ("corrective", "Corrective / Ad-hoc"),
+        ("any", "Any"),
+    ], string="Maintenance Type", default="any", required=True)
+
+    asset_category = fields.Selection([
+        ("it", "IT Equipment"),
+        ("electrical", "Electrical"),
+        ("mechanical", "Mechanical"),
+        ("hvac", "HVAC"),
+        ("furniture", "Furniture"),
+        ("other", "Other"),
+    ], string="Asset Category", help="Leave empty to match any category.")
+
+    asset_location_id = fields.Many2one(
+        "asset.location",
+        string="Asset Location",
+        help="Leave empty to match any location.",
+    )
+
+    maintenance_team_id = fields.Many2one(
+        "asset.maintenance.team",
+        string="Maintenance Team",
+        help="Leave empty to match any team.",
+    )
+
+    job_type = fields.Selection([
+        ("general", "General Job"),
+        ("flat", "Flat Inspection"),
+        ("any", "Any"),
+    ], string="Job Type", default="any", required=True)
+
+    # ── Assignment Output ────────────────────────────────────────────────────
+    responsible_employee_id = fields.Many2one(
+        "hr.employee",
+        string="Assign Responsible",
+        required=True,
+        help="Employee to set as Responsible when this rule matches.",
+    )
+
+    # ── Description ─────────────────────────────────────────────────────────
+    description = fields.Text(string="Notes / Description")
+
+    match_count = fields.Integer(
+        string="Times Matched",
+        readonly=True,
+        default=0,
+        help="How many tasks have been auto-assigned using this rule.",
+    )
+
+    def _matches_task(self, task):
+        """
+        Return True if this rule matches the given task record.
+        Criteria are ANDed — empty criteria fields are wildcards.
+        """
+        self.ensure_one()
+
+        # Maintenance type
+        if self.maintenance_type != "any":
+            if task.maintenance_type != self.maintenance_type:
+                return False
+
+        # Job type
+        if self.job_type != "any":
+            job_type = getattr(task, "job_type", "general") or "general"
+            if job_type != self.job_type:
+                return False
+
+        # Asset category
+        if self.asset_category:
+            asset_category = task.asset_id.asset_category if task.asset_id else False
+            if asset_category != self.asset_category:
+                return False
+
+        # Asset location
+        if self.asset_location_id:
+            asset_location = (
+                task.asset_id.location_id if task.asset_id else False
+            )
+            if asset_location != self.asset_location_id:
+                return False
+
+        # Maintenance team
+        if self.maintenance_team_id:
+            if task.maintenance_team_id != self.maintenance_team_id:
+                return False
+
+        return True
+
+    @api.model
+    def find_matching_rule(self, task):
+        """
+        Return the first active rule (by sequence) that matches the task,
+        or an empty recordset if none match.
+        """
+        rules = self.search([("active", "=", True)], order="sequence asc, id asc")
+        for rule in rules:
+            if rule._matches_task(task):
+                return rule
+        return self.browse()
+
+    def action_test_rule(self):
+        """Preview how many existing tasks this rule would match."""
+        self.ensure_one()
+        tasks = self.env["asset.maintenance.task"].search([
+            ("state", "not in", ["done", "cancel"]),
+        ])
+        matched = tasks.filtered(lambda t: self._matches_task(t))
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": f"Rule: {self.name}",
+                "message": (
+                    f"This rule would match {len(matched)} active task(s)."
+                    if matched else
+                    "No active tasks currently match this rule."
+                ),
+                "type": "info" if matched else "warning",
+                "sticky": False,
+            },
+        }
 
 class AssetMaintenancePlan(models.Model):
     _name = "asset.maintenance.plan"
     _description = "Asset Maintenance Plan"
 
     name = fields.Char(required=True)
-    asset_id = fields.Many2one("account.asset", required=True)
+    asset_id = fields.Many2one("account.asset", required=False)
     frequency_value = fields.Integer(required=True)
     frequency_unit = fields.Selection([
         ("day", "Days"),
@@ -988,18 +1584,24 @@ class AssetMaintenanceTeam(models.Model):
     name = fields.Char(required=True, tracking=True)
 
     team_leader_id = fields.Many2one(
-        "res.users",
+        "hr.employee",
         string="Team Leader",
         required=True,
         tracking=True,
     )
 
     member_ids = fields.Many2many(
-        "res.users",
+        "hr.employee",
         "maintenance_team_user_rel",
         "team_id",
-        "user_id",
+        "employee_id",
         string="Team Members",
+    )
+
+    team_leader_email = fields.Char(
+        string="Team Leader Email",
+        help="Email address to notify when a task is assigned to this team. "
+             "Does not require an Odoo user account.",
     )
 
     skill_set = fields.Text(string="Skills / Specializations")

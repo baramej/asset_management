@@ -1,0 +1,399 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="portal_contractor_visit_form" name="Contractor — Submit Service Visit">
+        <t t-call="portal.portal_layout">
+
+            <style>
+                .cv-card  { border-radius: 8px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,.08); }
+                .cv-head  { background: #1a1a2e; color: #fff; padding: 24px 32px; }
+                .cv-head small { color: rgba(255,255,255,.6); }
+                .cv-body  { padding: 32px; background: #fff; }
+                .cv-section { margin-bottom: 2rem; }
+                .cv-section h5 { font-weight: 700; border-bottom: 2px solid #1a1a2e;
+                                  padding-bottom: 6px; margin-bottom: 16px; color: #1a1a2e; }
+                .cv-table thead th { background: #1a1a2e; color: #fff;
+                                      padding: 10px 12px; font-weight: 600; }
+                .cv-table tbody td { padding: 8px 12px; vertical-align: middle; }
+                .cv-table tbody tr:nth-child(even) td { background: #f8f9fc; }
+                .total-row td { font-weight: 700; background: #eef1fb !important; }
+                .remove-row { color: #dc3545; cursor: pointer; font-size: 16px; }
+                .add-row-btn { font-size: 13px; }
+                #grand-total-box { background: #1a1a2e; color: #fff;
+                                    border-radius: 6px; padding: 16px 24px;
+                                    display: inline-block; min-width: 240px; }
+            </style>
+
+            <div class="container mt-4 mb-5">
+                <div class="cv-card">
+
+                    <!-- Header -->
+                    <div class="cv-head">
+                        <h3 class="mb-1">
+                            <i class="fa fa-file-text-o mr-2"/>
+                            Submit Service Visit Report
+                        </h3>
+                        <small>
+                            Contract: <strong><t t-esc="contract.name"/></strong>
+                            <t t-if="contract.reference">
+                                &amp;nbsp;·&amp;nbsp; Ref: <t t-esc="contract.reference"/>
+                            </t>
+                            &amp;nbsp;·&amp;nbsp; Client: <t t-esc="contract.customer_id.name"/>
+                        </small>
+                    </div>
+
+                    <div class="cv-body">
+
+                        <!-- ── Success banner ── -->
+                        <t t-if="request.params.get('done')">
+                            <div class="alert alert-success">
+                                <i class="fa fa-check-circle mr-2"/>
+                                <strong>Report submitted successfully!</strong>
+                                Your service visit has been logged. Thank you.
+                            </div>
+                        </t>
+
+                        <t t-if="not request.params.get('done')">
+
+                            <form t-attf-action="/contract/{{ contract.id }}/submit-visit/post"
+                                  method="POST" enctype="multipart/form-data">
+                                <input type="hidden" name="csrf_token"
+                                       t-att-value="request.csrf_token()"/>
+                                <input type="hidden" name="token" t-att-value="token"/>
+
+                                <!-- ── 1. Contractor Info ── -->
+                                <div class="cv-section">
+                                    <h5>Contractor Information</h5>
+                                    <div class="row">
+                                        <div class="col-md-4 mb-3">
+                                            <label class="form-label">Submitted By *</label>
+                                            <input type="text" name="submitted_by_name"
+                                                   class="form-control" required="required"
+                                                   placeholder="Your full name"/>
+                                        </div>
+                                        <div class="col-md-4 mb-3">
+                                            <label class="form-label">Lead Technician</label>
+                                            <input type="text" name="technician_name"
+                                                   class="form-control"
+                                                   placeholder="Name of lead technician on site"/>
+                                        </div>
+                                        <div class="col-md-4 mb-3">
+                                            <label class="form-label">Company / Organisation</label>
+                                            <input type="text" name="technician_company"
+                                                   class="form-control"
+                                                   placeholder="Your company name"/>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-3 mb-3">
+                                            <label class="form-label">Report Reference</label>
+                                            <input type="text" name="report_ref"
+                                                   class="form-control"
+                                                   placeholder="e.g. WO-2024-001"/>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- ── 2. Visit Details ── -->
+                                <div class="cv-section">
+                                    <h5>Visit Details</h5>
+                                    <div class="row">
+                                        <div class="col-md-3 mb-3">
+                                            <label class="form-label">Visit Date *</label>
+                                            <input type="date" name="visit_date"
+                                                   class="form-control" required="required"/>
+                                        </div>
+                                        <div class="col-md-3 mb-3">
+                                            <label class="form-label">Visit Type *</label>
+                                            <select name="visit_type" class="form-control" required="required">
+                                                <t t-foreach="visit_types" t-as="vt">
+                                                    <option t-att-value="vt[0]">
+                                                        <t t-esc="vt[1]"/>
+                                                    </option>
+                                                </t>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-3 mb-3">
+                                            <label class="form-label">Asset</label>
+                                            <select name="asset_id" class="form-control">
+                                                <option value="">— Select asset —</option>
+                                                <t t-foreach="assets" t-as="a">
+                                                    <option t-att-value="a.id">
+                                                        <t t-esc="a.name"/>
+                                                    </option>
+                                                </t>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-3 mb-3">
+                                            <label class="form-label">Recommended Next Visit</label>
+                                            <input type="date" name="next_visit_date"
+                                                   class="form-control"/>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- ── 3. Work Done ── -->
+                                <div class="cv-section">
+                                    <h5>Work Carried Out *</h5>
+                                    <textarea name="work_done" class="form-control" rows="4"
+                                              required="required"
+                                              placeholder="Describe all maintenance work performed during this visit…"/>
+                                </div>
+
+                                <!-- ── 4. Findings ── -->
+                                <div class="cv-section">
+                                    <h5>Findings / Observations</h5>
+                                    <textarea name="findings" class="form-control" rows="3"
+                                              placeholder="Any issues found, recommendations, or follow-up actions required…"/>
+                                </div>
+
+                                <!-- ── 5. Labour Table ── -->
+                                <div class="cv-section">
+                                    <h5>Labour &amp; Technicians</h5>
+                                    <p class="text-muted small mb-2">
+                                        Add each technician who worked on this visit.
+                                    </p>
+                                    <div class="table-responsive">
+                                        <table class="table table-bordered cv-table" id="labour-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Technician Name</th>
+                                                    <th style="width:160px;">Role / Skill</th>
+                                                    <th style="width:100px;">Hours</th>
+                                                    <th style="width:120px;">Rate / Hour</th>
+                                                    <th style="width:110px;">Subtotal</th>
+                                                    <th style="width:40px;"/>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="labour-tbody">
+                                                <tr class="labour-row">
+                                                    <td><input type="text" name="tech_name[]"
+                                                               class="form-control form-control-sm"
+                                                               placeholder="Full name"/></td>
+                                                    <td><input type="text" name="tech_role[]"
+                                                               class="form-control form-control-sm"
+                                                               placeholder="e.g. HVAC Tech"/></td>
+                                                    <td><input type="number" name="tech_hours[]"
+                                                               class="form-control form-control-sm labour-hours"
+                                                               step="0.5" min="0" value="0"/></td>
+                                                    <td><input type="number" name="tech_rate[]"
+                                                               class="form-control form-control-sm labour-rate"
+                                                               step="0.01" min="0" value="0"/></td>
+                                                    <td class="labour-subtotal text-end align-middle">0.00</td>
+                                                    <td class="text-center align-middle">
+                                                        <span class="remove-row fa fa-times"
+                                                              onclick="removeRow(this, 'labour')"/>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                            <tfoot>
+                                                <tr class="total-row">
+                                                    <td colspan="4" class="text-end">Labour Total</td>
+                                                    <td id="labour-total" class="text-end">0.00</td>
+                                                    <td/>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    </div>
+                                    <button type="button"
+                                            class="btn btn-outline-secondary btn-sm add-row-btn"
+                                            onclick="addLabourRow()">
+                                        <i class="fa fa-plus mr-1"/> Add Technician
+                                    </button>
+                                </div>
+
+                                <!-- ── 6. Materials Table ── -->
+                                <div class="cv-section">
+                                    <h5>Materials / Parts Used</h5>
+                                    <p class="text-muted small mb-2">
+                                        List all spare parts, materials, and consumables used.
+                                    </p>
+                                    <div class="table-responsive">
+                                        <table class="table table-bordered cv-table" id="material-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Description / Item</th>
+                                                    <th style="width:90px;">Qty</th>
+                                                    <th style="width:80px;">Unit</th>
+                                                    <th style="width:120px;">Unit Price</th>
+                                                    <th style="width:110px;">Subtotal</th>
+                                                    <th style="width:40px;"/>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="material-tbody">
+                                                <tr class="material-row">
+                                                    <td><input type="text" name="mat_desc[]"
+                                                               class="form-control form-control-sm"
+                                                               placeholder="e.g. Air Filter 24x24"/></td>
+                                                    <td><input type="number" name="mat_qty[]"
+                                                               class="form-control form-control-sm mat-qty"
+                                                               step="0.01" min="0" value="1"/></td>
+                                                    <td><input type="text" name="mat_unit[]"
+                                                               class="form-control form-control-sm"
+                                                               value="pcs" style="width:65px;"/></td>
+                                                    <td><input type="number" name="mat_price[]"
+                                                               class="form-control form-control-sm mat-price"
+                                                               step="0.01" min="0" value="0"/></td>
+                                                    <td class="mat-subtotal text-end align-middle">0.00</td>
+                                                    <td class="text-center align-middle">
+                                                        <span class="remove-row fa fa-times"
+                                                              onclick="removeRow(this, 'material')"/>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                            <tfoot>
+                                                <tr class="total-row">
+                                                    <td colspan="4" class="text-end">Materials Total</td>
+                                                    <td id="material-total" class="text-end">0.00</td>
+                                                    <td/>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    </div>
+                                    <button type="button"
+                                            class="btn btn-outline-secondary btn-sm add-row-btn"
+                                            onclick="addMaterialRow()">
+                                        <i class="fa fa-plus mr-1"/> Add Material
+                                    </button>
+                                </div>
+
+                                <!-- ── Grand Total ── -->
+                                <div class="cv-section text-end">
+                                    <div id="grand-total-box">
+                                        <span style="font-size:14px;opacity:.8;">Grand Total</span><br/>
+                                        <span id="grand-total"
+                                              style="font-size:28px;font-weight:700;">0.00</span>
+                                    </div>
+                                </div>
+
+                                <!-- ── 7. Notes ── -->
+                                <div class="cv-section">
+                                    <h5>Additional Notes / Remarks</h5>
+                                    <textarea name="contractor_notes" class="form-control" rows="3"
+                                              placeholder="Safety observations, next visit recommendations, or anything else to note…"/>
+                                </div>
+
+                                <!-- ── 8. Documents ── -->
+                                <div class="cv-section">
+                                    <h5>Supporting Documents</h5>
+                                    <p class="text-muted small">
+                                        Attach your job sheet, completion certificate, photos, or any
+                                        other supporting documents (PDF, images, Word, Excel).
+                                        Multiple files accepted.
+                                    </p>
+                                    <input type="file" name="attachments"
+                                           class="form-control"
+                                           multiple="multiple"
+                                           accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"/>
+                                </div>
+
+                                <!-- ── Submit ── -->
+                                <hr/>
+                                <div class="text-center mt-4 mb-2">
+                                    <button type="submit" class="btn btn-primary btn-lg px-5">
+                                        <i class="fa fa-paper-plane mr-2"/>
+                                        Submit Visit Report
+                                    </button>
+                                    <p class="text-muted small mt-3">
+                                        By submitting you confirm the information above is accurate.
+                                        Our team will be notified immediately.
+                                    </p>
+                                </div>
+
+                            </form>
+                        </t>
+
+                    </div><!-- /cv-body -->
+                </div><!-- /cv-card -->
+            </div>
+
+            <!-- ── Live-total JavaScript ── -->
+            <script type="text/javascript"><![CDATA[
+(function () {
+    function fmt(n) { return parseFloat(n || 0).toFixed(2); }
+
+    function recalcLabour() {
+        var total = 0;
+        document.querySelectorAll('#labour-tbody .labour-row').forEach(function (row) {
+            var h   = parseFloat(row.querySelector('.labour-hours').value) || 0;
+            var r   = parseFloat(row.querySelector('.labour-rate').value)  || 0;
+            var sub = h * r;
+            row.querySelector('.labour-subtotal').textContent = fmt(sub);
+            total += sub;
+        });
+        document.getElementById('labour-total').textContent = fmt(total);
+        recalcGrand();
+    }
+
+    function recalcMaterial() {
+        var total = 0;
+        document.querySelectorAll('#material-tbody .material-row').forEach(function (row) {
+            var q   = parseFloat(row.querySelector('.mat-qty').value)   || 0;
+            var p   = parseFloat(row.querySelector('.mat-price').value) || 0;
+            var sub = q * p;
+            row.querySelector('.mat-subtotal').textContent = fmt(sub);
+            total += sub;
+        });
+        document.getElementById('material-total').textContent = fmt(total);
+        recalcGrand();
+    }
+
+    function recalcGrand() {
+        var lt = parseFloat(document.getElementById('labour-total').textContent)   || 0;
+        var mt = parseFloat(document.getElementById('material-total').textContent) || 0;
+        document.getElementById('grand-total').textContent = fmt(lt + mt);
+    }
+
+    function attachLabour(row) {
+        row.querySelector('.labour-hours').addEventListener('input', recalcLabour);
+        row.querySelector('.labour-rate').addEventListener('input',  recalcLabour);
+    }
+
+    function attachMaterial(row) {
+        row.querySelector('.mat-qty').addEventListener('input',   recalcMaterial);
+        row.querySelector('.mat-price').addEventListener('input', recalcMaterial);
+    }
+
+    // Attach listeners to first rows
+    document.querySelectorAll('#labour-tbody .labour-row').forEach(attachLabour);
+    document.querySelectorAll('#material-tbody .material-row').forEach(attachMaterial);
+
+    window.addLabourRow = function () {
+        var tbody = document.getElementById('labour-tbody');
+        var clone = tbody.querySelector('.labour-row').cloneNode(true);
+        clone.querySelectorAll('input').forEach(function (i) {
+            i.value = i.classList.contains('labour-hours') || i.classList.contains('labour-rate') ? '0' : '';
+        });
+        clone.querySelector('.labour-subtotal').textContent = '0.00';
+        tbody.appendChild(clone);
+        attachLabour(clone);
+    };
+
+    window.addMaterialRow = function () {
+        var tbody = document.getElementById('material-tbody');
+        var clone = tbody.querySelector('.material-row').cloneNode(true);
+        clone.querySelectorAll('input').forEach(function (i) {
+            if (i.name && i.name.startsWith('mat_unit')) { i.value = 'pcs'; }
+            else if (i.name && i.name.startsWith('mat_qty')) { i.value = '1'; }
+            else if (i.classList.contains('mat-price')) { i.value = '0'; }
+            else { i.value = ''; }
+        });
+        clone.querySelector('.mat-subtotal').textContent = '0.00';
+        tbody.appendChild(clone);
+        attachMaterial(clone);
+    };
+
+    window.removeRow = function (btn, type) {
+        var row   = btn.closest('tr');
+        var tbody = row.parentElement;
+        if (tbody.querySelectorAll('tr').length > 1) {
+            row.remove();
+            if (type === 'labour')   recalcLabour();
+            if (type === 'material') recalcMaterial();
+        }
+    };
+})();
+            ]]></script>
+
+        </t>
+    </template>
+</odoo>

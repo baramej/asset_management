@@ -3,8 +3,7 @@
     <record id="email_template_inspection_material_request" model="mail.template">
         <field name="name">Asset Inspection: Material Request Notification</field>
         <field name="model_id" ref="asset_management.model_asset_inspection"/>
-        <field name="subject">⚙ New Material Request – {{ object.name }}</field>
-        <!-- email_to is intentionally omitted — it is set dynamically in _send_material_request_email() -->
+        <field name="subject">New Material Request – {{ object.name }}</field>
         <field name="body_html" type="html">
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #e0e0e0; border-radius: 6px; overflow: hidden;">
                 <!-- Header -->

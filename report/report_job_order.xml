@@ -1,19 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-
-    <record id="action_report_asset_job_order" model="ir.actions.report">
-        <field name="name">Job Order Report</field>
-        <field name="model">asset.job.order</field>
-        <field name="report_type">qweb-pdf</field>
-        <field name="report_name">asset_management.report_asset_job_order_document</field>
-        <field name="report_file">asset_management.report_asset_job_order_document</field>
-        <field name="binding_model_id" ref="model_asset_job_order"/>
-        <field name="binding_type">report</field>
-        <field name="print_report_name">'Job Order - %s' % (object.name)</field>
-        <field name="paperformat_id" ref="paperformat_asset_inspection"/>
-    </record>
-
     <record id="paperformat_asset_job_order" model="report.paperformat">
         <field name="name">Asset Job Order Format</field>
         <field name="format">A4</field>
@@ -27,6 +14,19 @@
         <field name="dpi">90</field>
     </record>
 
+    <record id="action_report_asset_job_order" model="ir.actions.report">
+        <field name="name">Job Order Report</field>
+        <field name="model">asset.job.order</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">asset_management.report_asset_job_order_document</field>
+        <field name="report_file">asset_management.report_asset_job_order_document</field>
+        <field name="binding_model_id" ref="model_asset_job_order"/>
+        <field name="binding_type">report</field>
+        <field name="print_report_name">'Job Order - %s' % (object.name)</field>
+        <field name="paperformat_id" ref="paperformat_asset_job_order"/>
+    </record>
+
+
     <template id="report_asset_job_order_document">
         <t t-call="web.html_container">
             <t t-foreach="docs" t-as="o">
@@ -36,44 +36,61 @@
                         <hr style="border-top: 2px solid #000; margin: 20px 0;"/>
                         <h2 class="text-center mb-4" style="margin: 20px 0;">Job Order Report</h2>
 
-                        <!-- ── Header Info ──────────────────────────────────────── -->
+                        <!-- ══════════════════════════════════════════════════
+                             SECTION 1 — Header Info
+                        ══════════════════════════════════════════════════ -->
                         <div class="row mb-4">
+                            <!-- Left column -->
                             <div class="col-6">
                                 <table class="table table-sm table-borderless">
                                     <tr>
-                                        <td style="width: 45%;"><strong>Job Order:</strong></td>
-                                        <td><span t-field="o.name"/></td>
+                                        <td style="width:45%;">
+                                            <strong>Job Order:</strong>
+                                        </td>
+                                        <td>
+                                            <span t-field="o.name"/>
+                                        </td>
                                     </tr>
                                     <tr>
-                                        <td><strong>Asset:</strong></td>
+                                        <td>
+                                            <strong>Asset:</strong>
+                                        </td>
                                         <td>
                                             <span t-if="o.asset_id" t-field="o.asset_id.name"/>
                                             <span t-else="" class="text-muted">-</span>
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td><strong>Maintenance Task:</strong></td>
+                                        <td>
+                                            <strong>Maintenance Task:</strong>
+                                        </td>
                                         <td>
                                             <span t-if="o.maintenance_task_id" t-field="o.maintenance_task_id.name"/>
                                             <span t-else="" class="text-muted">-</span>
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td><strong>Helpdesk Ticket:</strong></td>
+                                        <td>
+                                            <strong>Helpdesk Ticket:</strong>
+                                        </td>
                                         <td>
                                             <span t-if="o.helpdesk_ticket_id" t-field="o.helpdesk_ticket_id.name"/>
                                             <span t-else="" class="text-muted">-</span>
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td><strong>Inspection:</strong></td>
+                                        <td>
+                                            <strong>Inspection:</strong>
+                                        </td>
                                         <td>
                                             <span t-if="o.inspection_id" t-field="o.inspection_id.name"/>
                                             <span t-else="" class="text-muted">-</span>
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td><strong>Scheduled Date:</strong></td>
+                                        <td>
+                                            <strong>Scheduled Date:</strong>
+                                        </td>
                                         <td>
                                             <span t-if="o.scheduled_date"
                                                   t-field="o.scheduled_date"
@@ -82,7 +99,9 @@
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td><strong>Status:</strong></td>
+                                        <td>
+                                            <strong>Status:</strong>
+                                        </td>
                                         <td>
                                             <t t-if="o.state == 'draft'">
                                                 <span style="color:#6c757d; font-weight:bold;">Draft</span>
@@ -110,26 +129,47 @@
                                             </t>
                                         </td>
                                     </tr>
+                                    <tr>
+                                        <td>
+                                            <strong>Customer Approval:</strong>
+                                        </td>
+                                        <td>
+                                            <t t-if="o.customer_approval">
+                                                <span style="color:#007bff;">Required</span>
+                                            </t>
+                                            <t t-else="">
+                                                <span class="text-muted">Not Required</span>
+                                            </t>
+                                        </td>
+                                    </tr>
                                 </table>
                             </div>
+
+                            <!-- Right column -->
                             <div class="col-6">
                                 <table class="table table-sm table-borderless">
                                     <tr>
-                                        <td style="width: 45%;"><strong>Assigned To:</strong></td>
+                                        <td style="width:45%;">
+                                            <strong>Assigned To:</strong>
+                                        </td>
                                         <td>
                                             <span t-if="o.assigned_user_id" t-field="o.assigned_user_id.name"/>
                                             <span t-else="" class="text-muted">-</span>
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td><strong>Maintenance Team:</strong></td>
+                                        <td>
+                                            <strong>Maintenance Team:</strong>
+                                        </td>
                                         <td>
                                             <span t-if="o.maintenance_team_id" t-field="o.maintenance_team_id.name"/>
                                             <span t-else="" class="text-muted">-</span>
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td><strong>Work Started:</strong></td>
+                                        <td>
+                                            <strong>Work Started:</strong>
+                                        </td>
                                         <td>
                                             <span t-if="o.start_datetime"
                                                   t-field="o.start_datetime"
@@ -138,7 +178,9 @@
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td><strong>Work Ended:</strong></td>
+                                        <td>
+                                            <strong>Work Ended:</strong>
+                                        </td>
                                         <td>
                                             <span t-if="o.end_datetime"
                                                   t-field="o.end_datetime"
@@ -147,20 +189,127 @@
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td><strong>Total Hours:</strong></td>
-                                        <td><span t-field="o.total_hours" t-options='{"widget": "float_time"}'/></td>
+                                        <td>
+                                            <strong>Total Hours:</strong>
+                                        </td>
+                                        <td>
+                                            <span t-field="o.total_hours" t-options='{"widget": "float_time"}'/>
+                                        </td>
                                     </tr>
                                     <tr>
-                                        <td><strong>Findings Done:</strong></td>
+                                        <td>
+                                            <strong>Findings Done:</strong>
+                                        </td>
                                         <td>
                                             <span t-esc="'%.0f' % o.findings_completion_rate + '%'"/>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <strong>Pending Returns:</strong>
+                                        </td>
+                                        <td>
+                                            <t t-if="o.pending_return_count &gt; 0">
+                                                <span style="color:#dc3545; font-weight:bold;">
+                                                    <t t-esc="o.pending_return_count"/>
+                                                    item(s)
+                                                </span>
+                                            </t>
+                                            <t t-else="">
+                                                <span style="color:#28a745;">None</span>
+                                            </t>
                                         </td>
                                     </tr>
                                 </table>
                             </div>
                         </div>
 
-                        <!-- ── Findings ───────────────────────────────────────── -->
+                        <!-- ══════════════════════════════════════════════════
+                             SECTION 2 — Billing Information
+                        ══════════════════════════════════════════════════ -->
+                        <t t-if="o.billing_partner_id or o.labour_rate or o.invoice_id">
+                            <h4 class="mt-4 mb-3"
+                                style="background-color:#f8f9fa; padding:8px; border-left:4px solid #007bff;">
+                                Billing Information
+                            </h4>
+                            <div class="row">
+                                <div class="col-6">
+                                    <table class="table table-sm table-borderless">
+                                        <tr>
+                                            <td style="width:45%;">
+                                                <strong>Billing Entity:</strong>
+                                            </td>
+                                            <td>
+                                                <span t-if="o.billing_partner_id" t-field="o.billing_partner_id.name"/>
+                                                <span t-else="" class="text-muted">-</span>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>
+                                                <strong>Labour Rate / Hr:</strong>
+                                            </td>
+                                            <td>
+                                                <t t-if="o.labour_rate">
+                                                    <span t-field="o.labour_rate"/>
+                                                </t>
+                                                <t t-else="">
+                                                    <span class="text-muted">-</span>
+                                                </t>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>
+                                                <strong>Bill Inspection:</strong>
+                                            </td>
+                                            <td>
+                                                <t t-if="o.bill_inspection and o.inspection_id">
+                                                    <span style="color:#007bff;">Yes</span>
+                                                </t>
+                                                <t t-else="">
+                                                    <span class="text-muted">No</span>
+                                                </t>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </div>
+                                <div class="col-6">
+                                    <table class="table table-sm table-borderless">
+                                        <tr>
+                                            <td style="width:45%;">
+                                                <strong>Invoice:</strong>
+                                            </td>
+                                            <td>
+                                                <span t-if="o.invoice_id" t-field="o.invoice_id.name"/>
+                                                <span t-else="" class="text-muted">Not Invoiced</span>
+                                            </td>
+                                        </tr>
+                                        <tr t-if="o.invoice_id">
+                                            <td>
+                                                <strong>Payment Status:</strong>
+                                            </td>
+                                            <td>
+                                                <t t-if="o.invoice_state == 'paid'">
+                                                    <span style="color:#28a745; font-weight:bold;">Paid</span>
+                                                </t>
+                                                <t t-elif="o.invoice_state == 'partial'">
+                                                    <span style="color:#ffc107; font-weight:bold;">Partial</span>
+                                                </t>
+                                                <t t-elif="o.invoice_state == 'not_paid'">
+                                                    <span style="color:#dc3545; font-weight:bold;">Unpaid</span>
+                                                </t>
+                                                <t t-else="">
+                                                    <span class="text-muted">-</span>
+                                                </t>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+                        </t>
+
+                        <!-- ══════════════════════════════════════════════════
+                             SECTION 3 — Findings
+                        ══════════════════════════════════════════════════ -->
                         <t t-if="o.finding_line_ids">
                             <h4 class="mt-4 mb-3"
                                 style="background-color:#f8f9fa; padding:8px; border-left:4px solid #dc3545;">
@@ -170,17 +319,22 @@
                                 <thead style="background-color:#e9ecef;">
                                     <tr>
                                         <th style="width:4%;">#</th>
-                                        <th style="width:30%;">Description</th>
-                                        <th style="width:12%;">Severity</th>
-                                        <th style="width:14%;">Status</th>
+                                        <th style="width:28%;">Description</th>
+                                        <th style="width:11%;">Severity</th>
+                                        <th style="width:13%;">Status</th>
                                         <th style="width:8%; text-align:center;">From Insp.</th>
-                                        <th style="width:32%;">Technician Note</th>
+                                        <th style="width:18%;">Technician Note</th>
+                                        <th style="width:18%;">Additional Notes</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr t-foreach="o.finding_line_ids" t-as="f">
-                                        <td><span t-esc="f_index + 1"/></td>
-                                        <td><span t-field="f.description"/></td>
+                                        <td>
+                                            <span t-esc="f_index + 1"/>
+                                        </td>
+                                        <td>
+                                            <span t-field="f.description"/>
+                                        </td>
                                         <td>
                                             <t t-if="f.severity == 'critical'">
                                                 <span style="color:#dc3545; font-weight:bold;">Critical</span>
@@ -191,8 +345,11 @@
                                             <t t-elif="f.severity == 'medium'">
                                                 <span style="color:#ffc107;">Medium</span>
                                             </t>
-                                            <t t-else="">
+                                            <t t-elif="f.severity == 'low'">
                                                 <span style="color:#6c757d;">Low</span>
+                                            </t>
+                                            <t t-else="">
+                                                <span class="text-muted">-</span>
                                             </t>
                                         </td>
                                         <td>
@@ -217,12 +374,18 @@
                                             <span t-if="f.technician_note" t-field="f.technician_note"/>
                                             <span t-else="" class="text-muted">-</span>
                                         </td>
+                                        <td>
+                                            <span t-if="f.notes" t-field="f.notes"/>
+                                            <span t-else="" class="text-muted">-</span>
+                                        </td>
                                     </tr>
                                 </tbody>
                             </table>
                         </t>
 
-                        <!-- ── Materials ──────────────────────────────────────── -->
+                        <!-- ══════════════════════════════════════════════════
+                             SECTION 4 — Materials
+                        ══════════════════════════════════════════════════ -->
                         <t t-if="o.material_line_ids">
                             <h4 class="mt-4 mb-3"
                                 style="background-color:#f8f9fa; padding:8px; border-left:4px solid #28a745;">
@@ -231,34 +394,70 @@
                             <table class="table table-sm table-bordered">
                                 <thead style="background-color:#e9ecef;">
                                     <tr>
-                                        <th style="width:28%;">Product</th>
-                                        <th style="width:10%; text-align:center;">Unit</th>
-                                        <th style="width:12%; text-align:right;">Qty Planned</th>
-                                        <th style="width:12%; text-align:right;">Qty Used</th>
-                                        <th style="width:12%; text-align:right;">On Hand</th>
-                                        <th style="width:13%; text-align:center;">Approval</th>
-                                        <th style="width:13%; text-align:center;">Source</th>
+                                        <th style="width:22%;">Product</th>
+                                        <th style="width:8%; text-align:center;">Unit</th>
+                                        <th style="width:8%; text-align:center;">Consumable</th>
+                                        <th style="width:10%; text-align:right;">Qty Planned</th>
+                                        <th style="width:10%; text-align:right;">Qty Used</th>
+                                        <th style="width:10%; text-align:right;">On Hand</th>
+                                        <th style="width:12%; text-align:center;">Approval</th>
+                                        <th style="width:10%; text-align:center;">Source</th>
+                                        <th style="width:10%; text-align:center;">Reservation</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr t-foreach="o.material_line_ids" t-as="m">
-                                        <td><span t-field="m.product_id.name"/></td>
+                                        <td>
+                                            <span t-field="m.product_id.name"/>
+                                            <t t-if="m.description">
+                                                <br/>
+                                                <small class="text-muted">
+                                                    <span t-field="m.description"/>
+                                                </small>
+                                            </t>
+                                        </td>
                                         <td style="text-align:center;">
                                             <span t-if="m.uom_id" t-field="m.uom_id.name"/>
                                             <span t-else="" class="text-muted">-</span>
                                         </td>
-                                        <td style="text-align:right;"><span t-field="m.quantity_requested"/></td>
-                                        <td style="text-align:right;"><span t-field="m.quantity_used"/></td>
-                                        <td style="text-align:right;"><span t-field="m.on_hand_qty"/></td>
                                         <td style="text-align:center;">
-                                            <t t-if="m.approval_state == 'approved'">
-                                                <span style="color:#28a745; font-weight:bold;">Approved</span>
+                                            <t t-if="m.is_consumable">
+                                                <span style="color:#28a745;">Yes</span>
+                                            </t>
+                                            <t t-else="">
+                                                <span style="color:#fd7e14;">No (Tool)</span>
+                                            </t>
+                                        </td>
+                                        <td style="text-align:right;">
+                                            <span t-field="m.quantity_requested"/>
+                                        </td>
+                                        <td style="text-align:right;">
+                                            <span t-field="m.quantity_used"/>
+                                        </td>
+                                        <td style="text-align:right;">
+                                            <span t-field="m.on_hand_qty"/>
+                                        </td>
+                                        <td style="text-align:center;">
+                                            <t t-if="m.approval_state == 'requested'">
+                                                <span style="color:#17a2b8;">Requested</span>
+                                            </t>
+                                            <t t-elif="m.approval_state == 'approved'">
+                                                <span style="color:#007bff; font-weight:bold;">Approved</span>
                                             </t>
                                             <t t-elif="m.approval_state == 'rejected'">
                                                 <span style="color:#dc3545;">Rejected</span>
                                             </t>
-                                            <t t-else="">
-                                                <span style="color:#ffc107;">Pending</span>
+                                            <t t-elif="m.approval_state == 'collected'">
+                                                <span style="color:#fd7e14;">Collected</span>
+                                            </t>
+                                            <t t-elif="m.approval_state == 'consumed'">
+                                                <span style="color:#28a745; font-weight:bold;">Consumed</span>
+                                            </t>
+                                            <t t-elif="m.approval_state == 'pending_return'">
+                                                <span style="color:#dc3545;">Pending Return</span>
+                                            </t>
+                                            <t t-elif="m.approval_state == 'returned'">
+                                                <span style="color:#6c757d;">Returned</span>
                                             </t>
                                         </td>
                                         <td style="text-align:center;">
@@ -266,28 +465,70 @@
                                             <t t-elif="m.source == 'inspection'">Inspection</t>
                                             <t t-else="">Manual</t>
                                         </td>
+                                        <td style="text-align:center; font-size:10px;">
+                                            <span t-if="m.picking_id" t-field="m.picking_id.name"/>
+                                            <span t-else="" class="text-muted">-</span>
+                                        </td>
                                     </tr>
                                 </tbody>
                             </table>
-                            <!-- Material approval details -->
-                            <t t-if="o.material_approval_state != 'not_requested'">
-                                <table class="table table-sm table-borderless mt-1">
-                                    <tr>
-                                        <td style="font-size:11px; color:#6c757d;">
-                                            <strong>Material Approval Status:</strong>
-                                            <span t-esc="dict(o.fields_get(['material_approval_state'])['material_approval_state']['selection'])[o.material_approval_state]"/>
-                                            <t t-if="o.material_approved_by">
-                                                — approved by <span t-field="o.material_approved_by.name"/>
-                                                on <span t-field="o.material_approved_date"
-                                                         t-options='{"widget": "datetime", "format": "dd/MM/yyyy HH:mm"}'/>
-                                            </t>
-                                        </td>
-                                    </tr>
-                                </table>
-                            </t>
+
                         </t>
 
-                        <!-- ── Time Logs ───────────────────────────────────────── -->
+                        <!-- ══════════════════════════════════════════════════
+                             SECTION 5 — Additional Services
+                        ══════════════════════════════════════════════════ -->
+                        <t t-if="o.additional_service_ids">
+                            <h4 class="mt-4 mb-3"
+                                style="background-color:#f8f9fa; padding:8px; border-left:4px solid #6f42c1;">
+                                Additional Services
+                            </h4>
+                            <table class="table table-sm table-bordered">
+                                <thead style="background-color:#e9ecef;">
+                                    <tr>
+                                        <th style="width:35%;">Description</th>
+                                        <th style="width:20%;">Product / Service</th>
+                                        <th style="width:15%; text-align:right;">Qty</th>
+                                        <th style="width:15%; text-align:right;">Unit Price</th>
+                                        <th style="width:15%; text-align:right;">Subtotal</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr t-foreach="o.additional_service_ids" t-as="svc">
+                                        <td>
+                                            <span t-field="svc.name"/>
+                                        </td>
+                                        <td>
+                                            <span t-if="svc.product_id" t-field="svc.product_id.name"/>
+                                            <span t-else="" class="text-muted">-</span>
+                                        </td>
+                                        <td style="text-align:right;">
+                                            <span t-field="svc.quantity"/>
+                                        </td>
+                                        <td style="text-align:right;">
+                                            <span t-field="svc.unit_price"/>
+                                        </td>
+                                        <td style="text-align:right; font-weight:bold;">
+                                            <span t-field="svc.subtotal"/>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                                <tfoot style="background-color:#f8f9fa;">
+                                    <tr>
+                                        <td colspan="4" style="text-align:right; font-weight:bold;">Total Additional
+                                            Services:
+                                        </td>
+                                        <td style="text-align:right; font-weight:bold;">
+                                            <span t-esc="'%.2f' % sum(o.additional_service_ids.mapped('subtotal'))"/>
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </t>
+
+                        <!-- ══════════════════════════════════════════════════
+                             SECTION 6 — Time Logs
+                        ══════════════════════════════════════════════════ -->
                         <t t-if="o.technician_log_ids">
                             <h4 class="mt-4 mb-3"
                                 style="background-color:#f8f9fa; padding:8px; border-left:4px solid #ffc107;">
@@ -296,18 +537,18 @@
                             <table class="table table-sm table-bordered">
                                 <thead style="background-color:#e9ecef;">
                                     <tr>
-                                        <th style="width:25%;">Technician</th>
-                                        <th style="width:18%;">Date</th>
-                                        <th style="width:14%; text-align:right;">Start</th>
-                                        <th style="width:14%; text-align:right;">End</th>
+                                        <th style="width:25%;">Technician / Employee</th>
+                                        <th style="width:16%;">Date</th>
+                                        <th style="width:14%; text-align:right;">Clock In</th>
+                                        <th style="width:14%; text-align:right;">Clock Out</th>
                                         <th style="width:12%; text-align:right;">Hours</th>
-                                        <th style="width:17%;">Activity</th>
+                                        <th style="width:19%;">Work Description</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr t-foreach="o.technician_log_ids" t-as="l">
                                         <td>
-                                            <span t-if="l.user_id" t-field="l.user_id.name"/>
+                                            <span t-if="l.employee_id" t-field="l.employee_id.name"/>
                                             <span t-else="" class="text-muted">-</span>
                                         </td>
                                         <td>
@@ -315,10 +556,10 @@
                                                   t-options='{"widget": "date", "format": "dd/MM/yyyy"}'/>
                                         </td>
                                         <td style="text-align:right;">
-                                            <span t-field="l.start_time" t-options='{"widget": "float_time"}'/>
+                                            <span t-field="l.clock_in" t-options='{"widget": "float_time"}'/>
                                         </td>
                                         <td style="text-align:right;">
-                                            <span t-field="l.end_time" t-options='{"widget": "float_time"}'/>
+                                            <span t-field="l.clock_out" t-options='{"widget": "float_time"}'/>
                                         </td>
                                         <td style="text-align:right;">
                                             <span t-field="l.hours" t-options='{"widget": "float_time"}'/>
@@ -339,27 +580,39 @@
                             </table>
                         </t>
 
-                        <!-- ── Notes ──────────────────────────────────────────── -->
+                        <!-- ══════════════════════════════════════════════════
+                             SECTION 7 — Notes
+                        ══════════════════════════════════════════════════ -->
                         <t t-if="o.technician_notes or o.supervisor_close_notes or o.description">
                             <h4 class="mt-4 mb-3"
                                 style="background-color:#f8f9fa; padding:8px; border-left:4px solid #6c757d;">
                                 Notes
                             </h4>
                             <t t-if="o.description">
-                                <p style="font-size:13px; margin-bottom:4px;"><strong>Description:</strong></p>
+                                <p style="font-size:13px; margin-bottom:4px;">
+                                    <strong>Description:</strong>
+                                </p>
                                 <p t-field="o.description" style="font-size:13px; line-height:1.6; margin-left:8px;"/>
                             </t>
                             <t t-if="o.technician_notes">
-                                <p style="font-size:13px; margin-bottom:4px;"><strong>Technician Notes:</strong></p>
-                                <p t-field="o.technician_notes" style="font-size:13px; line-height:1.6; margin-left:8px;"/>
+                                <p style="font-size:13px; margin-bottom:4px;">
+                                    <strong>Technician Notes:</strong>
+                                </p>
+                                <p t-field="o.technician_notes"
+                                   style="font-size:13px; line-height:1.6; margin-left:8px;"/>
                             </t>
                             <t t-if="o.supervisor_close_notes">
-                                <p style="font-size:13px; margin-bottom:4px;"><strong>Supervisor Close Notes:</strong></p>
-                                <p t-field="o.supervisor_close_notes" style="font-size:13px; line-height:1.6; margin-left:8px;"/>
+                                <p style="font-size:13px; margin-bottom:4px;">
+                                    <strong>Supervisor Close Notes:</strong>
+                                </p>
+                                <p t-field="o.supervisor_close_notes"
+                                   style="font-size:13px; line-height:1.6; margin-left:8px;"/>
                             </t>
                         </t>
 
-                        <!-- ── Approval &amp; Closure Signatures ──────────────── -->
+                        <!-- ══════════════════════════════════════════════════
+                             SECTION 8 — Approval & Closure Signatures
+                        ══════════════════════════════════════════════════ -->
                         <t t-if="o.state in ('approved', 'closed')">
                             <h4 class="mt-4 mb-3"
                                 style="background-color:#f8f9fa; padding:8px; border-left:4px solid #6f42c1;">
@@ -375,14 +628,18 @@
                                             </td>
                                         </tr>
                                         <tr>
-                                            <td style="width:45%; font-size:12px;"><strong>Approved By:</strong></td>
+                                            <td style="width:45%; font-size:12px;">
+                                                <strong>Approved By:</strong>
+                                            </td>
                                             <td style="font-size:12px;">
                                                 <span t-if="o.approved_by" t-field="o.approved_by.name"/>
                                                 <span t-else="" class="text-muted">-</span>
                                             </td>
                                         </tr>
                                         <tr>
-                                            <td style="font-size:12px;"><strong>Approval Date:</strong></td>
+                                            <td style="font-size:12px;">
+                                                <strong>Approval Date:</strong>
+                                            </td>
                                             <td style="font-size:12px;">
                                                 <span t-if="o.approved_date"
                                                       t-field="o.approved_date"
@@ -391,13 +648,17 @@
                                             </td>
                                         </tr>
                                         <tr t-if="o.approved_by_name">
-                                            <td style="font-size:12px;"><strong>Signed By:</strong></td>
+                                            <td style="font-size:12px;">
+                                                <strong>Signed By:</strong>
+                                            </td>
                                             <td style="font-size:12px;">
                                                 <span t-field="o.approved_by_name"/>
                                             </td>
                                         </tr>
                                         <tr t-if="o.approved_by_signature">
-                                            <td style="font-size:12px;"><strong>Signature:</strong></td>
+                                            <td style="font-size:12px;">
+                                                <strong>Signature:</strong>
+                                            </td>
                                             <td>
                                                 <img t-att-src="image_data_uri(o.approved_by_signature)"
                                                      style="max-width:160px; max-height:60px; border:1px solid #ddd; padding:2px;"
@@ -406,6 +667,7 @@
                                         </tr>
                                     </table>
                                 </div>
+
                                 <!-- Closure -->
                                 <div class="col-6" t-if="o.state == 'closed'">
                                     <table class="table table-sm table-borderless">
@@ -415,14 +677,18 @@
                                             </td>
                                         </tr>
                                         <tr>
-                                            <td style="width:45%; font-size:12px;"><strong>Closed By:</strong></td>
+                                            <td style="width:45%; font-size:12px;">
+                                                <strong>Closed By:</strong>
+                                            </td>
                                             <td style="font-size:12px;">
                                                 <span t-if="o.closed_by" t-field="o.closed_by.name"/>
                                                 <span t-else="" class="text-muted">-</span>
                                             </td>
                                         </tr>
                                         <tr>
-                                            <td style="font-size:12px;"><strong>Closed Date:</strong></td>
+                                            <td style="font-size:12px;">
+                                                <strong>Closed Date:</strong>
+                                            </td>
                                             <td style="font-size:12px;">
                                                 <span t-if="o.closed_date"
                                                       t-field="o.closed_date"
@@ -431,13 +697,17 @@
                                             </td>
                                         </tr>
                                         <tr t-if="o.closed_by_name">
-                                            <td style="font-size:12px;"><strong>Signed By:</strong></td>
+                                            <td style="font-size:12px;">
+                                                <strong>Signed By:</strong>
+                                            </td>
                                             <td style="font-size:12px;">
                                                 <span t-field="o.closed_by_name"/>
                                             </td>
                                         </tr>
                                         <tr t-if="o.closed_by_signature">
-                                            <td style="font-size:12px;"><strong>Signature:</strong></td>
+                                            <td style="font-size:12px;">
+                                                <strong>Signature:</strong>
+                                            </td>
                                             <td>
                                                 <img t-att-src="image_data_uri(o.closed_by_signature)"
                                                      style="max-width:160px; max-height:60px; border:1px solid #ddd; padding:2px;"
@@ -448,8 +718,6 @@
                                 </div>
                             </div>
                         </t>
-
-                        <!-- ── Footer ─────────────────────────────────────────── -->
                         <div class="mt-5 pt-3 text-center"
                              style="border-top:1px solid #dee2e6; color:#6c757d; font-size:11px;">
                             <p style="margin:5px 0 0 0;">
@@ -462,4 +730,5 @@
             </t>
         </t>
     </template>
+
 </odoo>

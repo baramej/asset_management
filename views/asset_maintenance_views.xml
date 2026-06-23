@@ -8,7 +8,7 @@
                 <field name="asset_id"/>
                 <field name="maintenance_type"/>
                 <field name="scheduled_date"/>
-                <field name="assigned_user_id"/>
+                <field name="assigned_user_id" widget="many2one_avatar_employee"/>
                 <field name="state" widget="badge"
                        decoration-success="state == 'done'"
                        decoration-warning="state == 'in_progress'"
@@ -57,18 +57,6 @@
                 <sheet>
                     <!-- ── Smart Buttons ── -->
                     <div class="oe_button_box" name="button_box">
-                        <button name="action_view_inspection"
-                                type="object"
-                                class="oe_stat_button"
-                                icon="fa-search"
-                                invisible="inspection_id == False">
-                            <div class="o_field_widget o_stat_info">
-                                <span class="o_stat_value">
-                                    <field name="inspection_count"/>
-                                </span>
-                                <span class="o_stat_text">Inspection</span>
-                            </div>
-                        </button>
                         <button name="action_view_job_order"
                                 type="object"
                                 class="oe_stat_button"
@@ -123,7 +111,7 @@
                     <group string="Assignment &amp; Billing">
                         <group>
                             <field name="maintenance_team_id"/>
-                            <field name="assigned_user_id" widget="many2one_avatar_user"/>
+                            <field name="assigned_user_id" widget="many2one_avatar_employee"/>
                             <div colspan="2" invisible="not maintenance_team_id">
                                 <button name="action_view_team_schedule"
                                         string="View Team Schedule"
@@ -138,19 +126,20 @@
                                    placeholder="Auto-filled from asset..."/>
                             <field name="contract_id" readonly="1"
                                    invisible="not contract_id"/>
+                            <field name="responsible_email"
+                                   readonly="1"
+                                   invisible="not responsible_employee_id"
+                                   string="Notification Email"/>
                         </group>
                     </group>
 
                     <!-- ── Section 3: Linked Records ── -->
                     <group string="Linked Records"
-                           invisible="helpdesk_ticket_id == False and inspection_id == False">
+                           invisible="helpdesk_ticket_id == False">
                         <group>
                             <field name="helpdesk_ticket_id"
                                    readonly="1"
                                    invisible="helpdesk_ticket_id == False"/>
-                            <field name="inspection_id"
-                                   readonly="1"
-                                   invisible="inspection_id == False"/>
                         </group>
                     </group>
 
@@ -200,23 +189,6 @@
 
                     <!-- ── Notebook ── -->
                     <notebook>
-
-                        <page string="Checklist" name="checklist" invisible="maintenance_type == 'corrective'">
-                            <group>
-                                <field name="checklist_progress"
-                                       widget="progressbar"
-                                       options="{'editable': false}"/>
-                            </group>
-                            <field name="checklist_line_ids">
-                                <list editable="bottom">
-                                    <field name="sequence" widget="handle"/>
-                                    <field name="description"/>
-                                    <field name="is_mandatory" widget="boolean_toggle"/>
-                                    <field name="is_done" widget="boolean_toggle"/>
-                                    <field name="notes" optional="show"/>
-                                </list>
-                            </field>
-                        </page>
 
                         <page string="Findings" name="task_findings">
                             <field name="task_finding_ids">
@@ -322,6 +294,64 @@
                             </group>
                         </page>
 
+                        <!-- ── Flat Checklist (only for flat inspection job type) ── -->
+                        <page string="Flat Checklist" name="flat_checklist"
+                              invisible="job_type != 'flat'">
+                            <group>
+                                <group>
+                                    <field name="job_type" readonly="1" widget="badge"
+                                           decoration-info="job_type == 'flat'"/>
+                                    <field name="flat_asset_id" readonly="1"
+                                           invisible="not flat_asset_id"/>
+                                    <field name="flat_no" readonly="1"
+                                           invisible="not flat_no"/>
+                                    <field name="resident_name" readonly="1"
+                                           invisible="not resident_name"/>
+                                    <field name="checklist_template_id" readonly="1"/>
+                                </group>
+                                <group>
+                                    <field name="checked_by"/>
+                                    <field name="checklist_progress"
+                                           widget="progressbar"
+                                           options="{'editable': false}"
+                                           invisible="checklist_total == 0"/>
+                                </group>
+                            </group>
+                            <group invisible="checklist_total == 0">
+                                <button name="action_load_checklist"
+                                        string="Reload Checklist from Template"
+                                        type="object"
+                                        class="btn-secondary btn-sm"
+                                        icon="fa-refresh"/>
+                            </group>
+                            <field name="flat_checklist_line_ids">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="section" optional="show"/>
+                                    <field name="description" readonly="1"/>
+                                    <field name="expected_qty" readonly="1" optional="show"/>
+                                    <field name="status" widget="badge"
+                                           decoration-success="status == 'ok'"
+                                           decoration-danger="status == 'missing' or status == 'damaged'"
+                                           decoration-secondary="status == 'na'"/>
+                                    <field name="remarks"/>
+                                    <field name="is_meter_reading" readonly="1" optional="show"/>
+                                    <field name="meter_value"
+                                           invisible="not is_meter_reading"
+                                           optional="show"/>
+                                    <field name="meter_date"
+                                           invisible="not is_meter_reading"
+                                           optional="show"/>
+                                </list>
+                            </field>
+                            <group string="Signatures" invisible="job_type != 'flat'">
+                                <group>
+                                    <field name="resident_signature" widget="signature"/>
+                                    <field name="resident_signature_name"/>
+                                </group>
+                            </group>
+                        </page>
+
                     </notebook>
                 </sheet>
                 <chatter/>
@@ -396,6 +426,15 @@
                                     <field name="visit_count"/>
                                 </span>
                                 <span class="o_stat_text">Visits</span>
+                            </div>
+                        </button>
+                        <button name="action_copy_contractor_link"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-link">
+                            <div class="o_field_widget o_stat_info">
+                                <span class="o_stat_text">Contractor</span>
+                                <span class="o_stat_text">Portal Link</span>
                             </div>
                         </button>
                         <button name="action_view_assets"
@@ -523,6 +562,7 @@
                         </page>
 
                         <!-- Service Visit Log tab -->
+                        <!-- Service Visit Log tab -->
                         <page string="Service Visit Log" name="visits">
                             <field name="service_visit_ids">
                                 <list decoration-success="status == 'completed'"
@@ -536,11 +576,21 @@
                                     <field name="is_covered_under_contract"
                                            widget="boolean_toggle"
                                            string="Covered"/>
+                                    <field name="portal_state" widget="badge"
+                                           decoration-warning="portal_state == 'pending'"
+                                           decoration-success="portal_state == 'submitted'"
+                                           decoration-info="portal_state == 'reviewed'"
+                                           optional="show"/>
                                     <field name="status" widget="badge"
                                            decoration-success="status == 'completed'"
                                            decoration-warning="status == 'in_progress'"
                                            decoration-muted="status == 'cancelled'"/>
                                     <field name="report_ref" optional="show"/>
+                                    <button name="action_send_contractor_portal_link"
+                                            string="Send to Contractor"
+                                            type="object"
+                                            class="btn-secondary btn-sm"
+                                            invisible="portal_state == 'submitted'"/>
                                     <button name="action_mark_completed"
                                             string="Mark Completed"
                                             type="object"
@@ -550,6 +600,11 @@
                                 </list>
                                 <form string="Service Visit">
                                     <header>
+                                        <button name="action_send_contractor_portal_link"
+                                                string="Send to Contractor"
+                                                type="object"
+                                                class="btn-primary"
+                                                invisible="portal_state == 'submitted'"/>
                                         <button name="action_mark_completed"
                                                 string="Mark as Completed"
                                                 type="object"
@@ -559,11 +614,17 @@
                                                 string="Attachments"
                                                 type="object"
                                                 class="btn-secondary"/>
+                                        <field name="portal_state" widget="badge"
+                                               decoration-warning="portal_state == 'pending'"
+                                               decoration-success="portal_state == 'submitted'"
+                                               decoration-info="portal_state == 'reviewed'"/>
                                         <field name="status" widget="statusbar"
                                                statusbar_visible="scheduled,in_progress,completed"/>
                                     </header>
                                     <sheet>
                                         <field name="contract_asset_ids" invisible="1"/>
+
+                                        <!-- ── Core Visit Info ── -->
                                         <group>
                                             <group string="Visit Details">
                                                 <field name="visit_date"/>
@@ -589,10 +650,102 @@
                                             <field name="findings" nolabel="1"
                                                    placeholder="Any issues found, recommendations, follow-up needed..."/>
                                         </group>
-                                        <group string="Parts / Materials Used">
+                                        <group string="Parts / Materials Used (Summary)">
                                             <field name="parts_used" nolabel="1"
                                                    placeholder="List spare parts or consumables used..."/>
                                         </group>
+
+                                        <!-- ── Contractor Report Tab (populated via portal) ── -->
+                                        <notebook>
+                                            <page string="Contractor Report" name="contractor_report">
+
+                                                <!-- Banner when nothing submitted yet -->
+                                                <div class="alert alert-info mb-3"
+                                                     invisible="portal_state != 'pending'">
+                                                    <i class="fa fa-info-circle mr-2"/>
+                                                    No contractor report submitted yet. Click
+                                                    <strong>Send to Contractor</strong>
+                                                    in the header to send them a portal link.
+                                                </div>
+
+                                                <!-- Submission meta -->
+                                                <group string="Submission Info"
+                                                       invisible="portal_state == 'pending'">
+                                                    <group>
+                                                        <field name="submitted_by_name" readonly="1"
+                                                               string="Submitted By"/>
+                                                        <field name="submitted_on" readonly="1"
+                                                               string="Submitted On"/>
+                                                    </group>
+                                                    <group>
+                                                        <field name="total_labour_cost" readonly="1"
+                                                               string="Labour Total"
+                                                               widget="monetary"/>
+                                                        <field name="total_material_cost" readonly="1"
+                                                               string="Materials Total"
+                                                               widget="monetary"/>
+                                                        <field name="total_cost" readonly="1"
+                                                               string="Grand Total"
+                                                               widget="monetary"/>
+                                                    </group>
+                                                </group>
+
+                                                <!-- Labour lines -->
+                                                <group string="Labour / Technicians"
+                                                       invisible="portal_state == 'pending'">
+                                                    <field name="labour_line_ids" readonly="1" nolabel="1">
+                                                        <list>
+                                                            <field name="technician" string="Technician Name"/>
+                                                            <field name="role" string="Role / Skill"/>
+                                                            <field name="hours" string="Hours"/>
+                                                            <field name="hourly_rate" string="Rate / Hour"/>
+                                                            <field name="subtotal" string="Subtotal"/>
+                                                        </list>
+                                                    </field>
+                                                </group>
+
+                                                <!-- Material lines -->
+                                                <group string="Materials / Parts Used"
+                                                       invisible="portal_state == 'pending'">
+                                                    <field name="material_line_ids" readonly="1" nolabel="1">
+                                                        <list>
+                                                            <field name="description" string="Item / Material"/>
+                                                            <field name="quantity" string="Qty"/>
+                                                            <field name="unit" string="Unit"/>
+                                                            <field name="unit_price" string="Unit Price"/>
+                                                            <field name="subtotal" string="Subtotal"/>
+                                                        </list>
+                                                    </field>
+                                                </group>
+
+                                                <!-- Contractor notes -->
+                                                <group string="Contractor Notes / Remarks"
+                                                       invisible="portal_state == 'pending'">
+                                                    <field name="contractor_notes" readonly="1" nolabel="1"/>
+                                                </group>
+
+                                                <!-- Uploaded documents -->
+                                                <group string="Submitted Documents"
+                                                       invisible="portal_state == 'pending'">
+                                                    <field name="portal_attachment_ids"
+                                                           widget="many2many_binary"
+                                                           readonly="1"
+                                                           nolabel="1"/>
+                                                </group>
+
+                                                <!-- Mark as reviewed button -->
+                                                <div class="mt-3"
+                                                     invisible="portal_state != 'submitted'">
+                                                    <button name="action_mark_reviewed"
+                                                            string="Mark as Reviewed"
+                                                            type="object"
+                                                            class="btn-primary btn-sm"
+                                                            icon="fa-check-circle"/>
+                                                </div>
+
+                                            </page>
+                                        </notebook>
+
                                     </sheet>
                                     <chatter/>
                                 </form>
@@ -655,7 +808,7 @@
         <field name="arch" type="xml">
             <list>
                 <field name="name"/>
-                <field name="team_leader_id" widget="many2one_avatar_user"/>
+                <field name="team_leader_id" widget="many2one_avatar_employee"/>
                 <field name="active_tasks"/>
                 <field name="availability_rate"/>
             </list>
@@ -671,7 +824,9 @@
                     <group>
                         <group>
                             <field name="name"/>
-                            <field name="team_leader_id" widget="many2one_avatar_user"/>
+                            <field name="team_leader_id"
+                                   widget="many2one_avatar_employee"/>
+                            <field name="team_leader_email" placeholder="e.g. supervisor@company.com"/>
                             <field name="color"/>
                         </group>
                         <group>
@@ -682,7 +837,7 @@
                     </group>
 
                     <group string="Team Members">
-                        <field name="member_ids" widget="many2many_tags"/>
+                        <field name="member_ids" widget="many2many_tags_avatar"/>
                     </group>
 
                     <group>
@@ -746,6 +901,98 @@
         </field>
     </record>
 
+    <record id="view_asset_task_assignment_rule_list" model="ir.ui.view">
+        <field name="name">asset.task.assignment.rule.list</field>
+        <field name="model">asset.task.assignment.rule</field>
+        <field name="arch" type="xml">
+            <list string="Assignment Rules">
+                <field name="active" column_invisible="1"/>
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="maintenance_type" />
+                <field name="job_type" widget="badge"/>
+                <field name="asset_category" optional="show"/>
+                <field name="asset_location_id" optional="show"/>
+                <field name="maintenance_team_id" optional="show"/>
+                <field name="responsible_employee_id"/>
+                <field name="match_count" string="Matched" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_asset_task_assignment_rule_form" model="ir.ui.view">
+        <field name="name">asset.task.assignment.rule.form</field>
+        <field name="model">asset.task.assignment.rule</field>
+        <field name="arch" type="xml">
+            <form string="Assignment Rule">
+                <header>
+                    <button name="action_test_rule"
+                            string="Test This Rule"
+                            type="object"
+                            class="btn-secondary"
+                            icon="fa-bolt"/>
+                    <field name="active" widget="boolean_toggle"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1>
+                            <field name="name" placeholder="Rule name…"/>
+                        </h1>
+                    </div>
+
+                    <div class="alert alert-info" role="alert">
+                        <i class="fa fa-info-circle mr-2"/>
+                        Rules are evaluated in <strong>sequence order</strong> — the first
+                        matching rule wins. Leave criteria fields empty to match <em>any</em> value.
+                    </div>
+
+                    <group string="Matching Criteria">
+                        <group>
+                            <field name="sequence"/>
+                            <field name="maintenance_type" widget="radio"/>
+                            <field name="job_type" widget="radio"/>
+                        </group>
+                        <group>
+                            <field name="asset_category" placeholder="Any category"/>
+                            <field name="asset_location_id"
+                                   options="{'no_create': True}"
+                                   placeholder="Any location"/>
+                            <field name="maintenance_team_id"
+                                   options="{'no_create': True}"
+                                   placeholder="Any team"/>
+                        </group>
+                    </group>
+
+                    <group string="Assignment">
+                        <group>
+                            <field name="responsible_employee_id"
+                                   widget="many2one_avatar_employee"
+                                   options="{'no_create': True}"/>
+                        </group>
+                        <group>
+                            <field name="match_count" readonly="1"
+                                   string="Times Auto-Matched"/>
+                        </group>
+                    </group>
+
+                    <group string="Notes">
+                        <field name="description" nolabel="1"
+                               placeholder="Describe when this rule applies…"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_asset_task_assignment_rule" model="ir.actions.act_window">
+        <field name="name">Task Assignment Rules</field>
+        <field name="res_model">asset.task.assignment.rule</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{"search_default_flt_active": 1}</field>
+    </record>
+
+
     <record id="view_asset_maintenance_team_search" model="ir.ui.view">
         <field name="name">asset.maintenance.team.search</field>
         <field name="model">asset.maintenance.team</field>
@@ -774,10 +1021,13 @@
         <field name="search_view_id" ref="view_asset_maintenance_team_search"/>
     </record>
 
+
     <record id="action_asset_maintenance_task" model="ir.actions.act_window">
         <field name="name">Maintenance Tasks</field>
         <field name="res_model">asset.maintenance.task</field>
         <field name="view_mode">list,form</field>
         <field name="search_view_id" ref="view_asset_maintenance_task_search"/>
     </record>
+
+
 </odoo>

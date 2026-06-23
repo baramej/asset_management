@@ -4,3 +4,4 @@ from . import asset_material_rejection_wizard
 from . import asset_inspection_complete_wizard
 from . import job_order_complete_wizard
 from . import maintenance_task_team_wizard
+from . import asset_schedule_task_wizard

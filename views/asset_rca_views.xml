@@ -1,0 +1,390 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ── RCA Config ────────────────────────────────────────────────────── -->
+    <record id="view_asset_rca_config_list" model="ir.ui.view">
+        <field name="name">asset.rca.config.list</field>
+        <field name="model">asset.rca.config</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="trigger_type"/>
+                <field name="threshold_count" string="Min Events"/>
+                <field name="threshold_days" string="Within (days)"/>
+                <field name="active" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_asset_rca_config_form" model="ir.ui.view">
+        <field name="name">asset.rca.config.form</field>
+        <field name="model">asset.rca.config</field>
+        <field name="arch" type="xml">
+            <form string="RCA Trigger Rule">
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="Rule name..."/></h1>
+                    </div>
+                    <group>
+                        <group string="Trigger Criteria">
+                            <field name="trigger_type"/>
+                            <field name="threshold_count" string="Minimum Events"/>
+                            <field name="threshold_days" string="Within (days)"/>
+                            <field name="active" widget="boolean_toggle"/>
+                        </group>
+                    </group>
+                    <group string="Notes">
+                        <field name="notes" nolabel="1" placeholder="Describe when this rule applies..."/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_asset_rca_config" model="ir.actions.act_window">
+        <field name="name">RCA Rules</field>
+        <field name="res_model">asset.rca.config</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <!-- ── RCA Candidates ───────────────────────────────────────────────── -->
+    <record id="view_asset_rca_candidate_list" model="ir.ui.view">
+        <field name="name">asset.rca.candidate.list</field>
+        <field name="model">asset.rca.candidate</field>
+        <field name="arch" type="xml">
+            <list decoration-danger="not has_rca"
+                  decoration-success="has_rca">
+                <field name="flag_date" string="Flagged On"/>
+                <field name="asset_id" string="Asset"/>
+                <field name="asset_location" string="Location"/>
+                <field name="customer_id" string="Customer"/>
+                <field name="config_id" string="Rule"/>
+                <field name="inspection_count" string="Inspections"/>
+                <field name="job_order_count" string="Job Orders"/>
+                <field name="helpdesk_count" string="Tickets"/>
+                <field name="combined_count" string="Total"/>
+                <field name="has_rca" widget="boolean_toggle"
+                       string="RCA Done" readonly="1"/>
+                <button name="action_create_rca"
+                        string="Create RCA"
+                        type="object"
+                        class="btn-primary btn-sm"
+                        invisible="has_rca"/>
+                <button name="action_create_rca"
+                        string="Open RCA"
+                        type="object"
+                        class="btn-secondary btn-sm"
+                        invisible="not has_rca"/>
+            </list>
+        </field>
+    </record>
+
+
+    <record id="action_asset_rca_candidate" model="ir.actions.act_window">
+        <field name="name">Flagged Assets</field>
+        <field name="res_model">asset.rca.candidate</field>
+        <field name="view_mode">list</field>
+<!--        <field name="search_view_id" ref="view_asset_rca_candidate_search"/>-->
+<!--        <field name="context">{"search_default_flt_no_rca": 1}</field>-->
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No assets flagged yet</p>
+            <p>Run the daily cron or configure RCA rules to start flagging assets.</p>
+        </field>
+    </record>
+
+    <!-- ── RCA Report Form ───────────────────────────────────────────────── -->
+    <record id="view_asset_rca_report_form" model="ir.ui.view">
+        <field name="name">asset.rca.report.form</field>
+        <field name="model">asset.rca.report</field>
+        <field name="arch" type="xml">
+            <form string="Root Cause Analysis">
+                <header>
+                    <button name="action_submit_review"
+                            string="Submit for Review"
+                            type="object"
+                            class="btn-primary"
+                            invisible="state != 'draft'"/>
+                    <button name="action_approve"
+                            string="Approve"
+                            type="object"
+                            class="btn-success"
+                            invisible="state != 'in_review'"/>
+                    <button name="action_close"
+                            string="Close RCA"
+                            type="object"
+                            class="btn-primary"
+                            invisible="state != 'approved'"/>
+                    <button name="action_reset_draft"
+                            string="Reset to Draft"
+                            type="object"
+                            class="btn-secondary"
+                            invisible="state not in ('in_review',)"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="draft,in_review,approved,closed"/>
+                </header>
+
+                <sheet>
+                    <!-- Smart Buttons -->
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_asset_inspections"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-search">
+                            <div class="o_field_widget o_stat_info">
+                                <span class="o_stat_value">
+                                    <field name="inspection_count"/>
+                                </span>
+                                <span class="o_stat_text">Inspections</span>
+                            </div>
+                        </button>
+                        <button name="action_view_asset_job_orders"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-file-text-o">
+                            <div class="o_field_widget o_stat_info">
+                                <span class="o_stat_value">
+                                    <field name="job_order_count"/>
+                                </span>
+                                <span class="o_stat_text">Job Orders</span>
+                            </div>
+                        </button>
+                        <button name="action_view_asset_tickets"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-ticket">
+                            <div class="o_field_widget o_stat_info">
+                                <span class="o_stat_value">
+                                    <field name="helpdesk_count"/>
+                                </span>
+                                <span class="o_stat_text">Tickets</span>
+                            </div>
+                        </button>
+                    </div>
+
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" readonly="1"/></h1>
+                    </div>
+
+                    <group string="RCA Details">
+                        <group>
+                            <field name="asset_id"
+                                   options="{'no_create': True}"/>
+                            <field name="asset_location" readonly="1"/>
+                            <field name="customer_id" readonly="1"/>
+                            <field name="asset_category" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="date"/>
+                            <field name="conducted_by_id"
+                                   widget="many2one_avatar_user"/>
+                            <field name="recurrence_risk"
+                                   widget="badge"
+                                   decoration-danger="recurrence_risk == 'critical'"
+                                   decoration-warning="recurrence_risk == 'high'"
+                                   decoration-info="recurrence_risk == 'medium'"
+                                   decoration-secondary="recurrence_risk == 'low'"/>
+                            <field name="trigger_rule_id" readonly="1"
+                                   invisible="not trigger_rule_id"/>
+                        </group>
+                    </group>
+
+                    <group string="Analysis Team">
+                        <field name="team_ids"
+                               widget="many2many_tags"
+                               nolabel="1"/>
+                    </group>
+
+                    <notebook>
+
+                        <page string="Problem Statement" name="problem">
+                            <group string="Problem Description">
+                                <field name="problem_statement"
+                                       nolabel="1"
+                                       placeholder="Describe the recurring issue observed on this asset..."/>
+                            </group>
+                            <group string="Timeline of Events">
+                                <field name="timeline_description"
+                                       nolabel="1"
+                                       placeholder="Summarise the sequence: inspection on X date found Y, job order on Z date for W..."/>
+                            </group>
+                        </page>
+
+                        <page string="5-Why Analysis" name="five_why">
+                            <group>
+                                <field name="why_1"
+                                       string="Why did this happen? (1)"
+                                       placeholder="First why..."/>
+                                <field name="why_2"
+                                       string="Why? (2)"
+                                       placeholder="Second why..."/>
+                                <field name="why_3"
+                                       string="Why? (3)"
+                                       placeholder="Third why..."/>
+                                <field name="why_4"
+                                       string="Why? (4)"
+                                       placeholder="Fourth why..."/>
+                                <field name="why_5"
+                                       string="Why? (5)"
+                                       placeholder="Fifth why..."/>
+                            </group>
+                            <group string="Root Cause Summary">
+                                <field name="root_cause"
+                                       nolabel="1"
+                                       placeholder="Summarise the root cause identified from the 5-Why analysis..."/>
+                            </group>
+                        </page>
+
+                        <page string="Contributing Factors" name="factors">
+                            <field name="factor_line_ids">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="category"/>
+                                    <field name="description"
+                                           string="Factor"
+                                           placeholder="Describe the contributing factor..."/>
+                                    <field name="is_root_cause"
+                                           widget="boolean_toggle"
+                                           string="Root Cause?"/>
+                                </list>
+                            </field>
+                        </page>
+
+                        <page string="Corrective Actions" name="actions">
+                            <field name="action_line_ids">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="description"
+                                           string="Action"
+                                           placeholder="What corrective action needs to be taken?"/>
+                                    <field name="assigned_to_id"
+                                           string="Assigned To"/>
+                                    <field name="due_date"/>
+                                    <field name="status"
+                                           widget="badge"
+                                           decoration-success="status == 'completed'"
+                                           decoration-warning="status == 'in_progress'"
+                                           decoration-muted="status == 'cancelled'"
+                                           decoration-secondary="status == 'pending'"/>
+                                    <field name="notes" optional="show"/>
+                                </list>
+                            </field>
+                        </page>
+
+                        <page string="Preventive Measures" name="preventive">
+                            <group>
+                                <field name="preventive_measures"
+                                       nolabel="1"
+                                       placeholder="What measures will prevent recurrence?"/>
+                            </group>
+                            <group>
+                                <field name="pm_schedule_change"
+                                       widget="boolean_toggle"/>
+                                <field name="pm_schedule_notes"
+                                       invisible="not pm_schedule_change"
+                                       placeholder="Describe the required PM schedule changes..."/>
+                            </group>
+                        </page>
+
+                        <page string="Outcome" name="outcome">
+                            <group string="Resolution">
+                                <field name="outcome"
+                                       nolabel="1"
+                                       placeholder="Describe the final outcome and resolution..."/>
+                            </group>
+                            <group string="Internal Notes">
+                                <field name="notes"
+                                       nolabel="1"
+                                       placeholder="Internal notes..."/>
+                            </group>
+                        </page>
+
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_asset_rca_report_list" model="ir.ui.view">
+        <field name="name">asset.rca.report.list</field>
+        <field name="model">asset.rca.report</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name" string="Reference"/>
+                <field name="asset_id"/>
+                <field name="asset_location" string="Location"/>
+                <field name="customer_id" string="Customer"/>
+                <field name="date"/>
+                <field name="conducted_by_id"/>
+                <field name="inspection_count" string="Inspections"/>
+                <field name="job_order_count" string="Job Orders"/>
+                <field name="helpdesk_count" string="Tickets"/>
+<!--                <field name="recurrence_risk"-->
+<!--                       widget="badge"-->
+<!--                       decoration-danger="recurrence_risk == 'critical'"-->
+<!--                       decoration-warning="recurrence_risk == 'high'"-->
+<!--                       decoration-info="recurrence_risk == 'medium'"-->
+<!--                       decoration-secondary="recurrence_risk == 'low'"/>-->
+<!--                <field name="state" widget="badge"-->
+<!--                       decoration-success="state == 'approved'"-->
+<!--                       decoration-warning="state == 'in_review'"-->
+<!--                       decoration-muted="state == 'closed'"-->
+<!--                       decoration-secondary="state == 'draft'"/>-->
+            </list>
+        </field>
+    </record>
+
+    <record id="view_asset_rca_report_search" model="ir.ui.view">
+        <field name="name">asset.rca.report.search</field>
+        <field name="model">asset.rca.report</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="asset_id"/>
+                <field name="conducted_by_id"/>
+                <filter string="Draft" name="flt_draft"
+                        domain="[('state','=','draft')]"/>
+                <filter string="In Review" name="flt_review"
+                        domain="[('state','=','in_review')]"/>
+                <filter string="Approved" name="flt_approved"
+                        domain="[('state','=','approved')]"/>
+                <filter string="Closed" name="flt_closed"
+                        domain="[('state','=','closed')]"/>
+                <separator/>
+                <filter string="High/Critical Risk" name="flt_high_risk"
+                        domain="[('recurrence_risk','in',['high','critical'])]"/>
+                <separator/>
+                <filter string="Group by Asset" name="grp_asset"
+                        context="{'group_by':'asset_id'}"/>
+                <filter string="Group by State" name="grp_state"
+                        context="{'group_by':'state'}"/>
+                <searchpanel>
+                    <field name="state" icon="fa-flag" select="multi"/>
+                    <field name="recurrence_risk" icon="fa-exclamation-triangle"
+                           select="multi"/>
+                </searchpanel>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_asset_rca_report" model="ir.actions.act_window">
+        <field name="name">RCA Reports</field>
+        <field name="res_model">asset.rca.report</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_asset_rca_report_search"/>
+    </record>
+
+    <!-- ── Cron ──────────────────────────────────────────────────────────── -->
+    <record id="cron_refresh_rca_candidates" model="ir.cron">
+        <field name="name">RCA: Refresh Flagged Assets</field>
+        <field name="model_id" ref="model_asset_rca_candidate"/>
+        <field name="state">code</field>
+        <field name="code">model.cron_refresh_candidates()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active">True</field>
+    </record>
+
+</odoo>

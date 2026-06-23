@@ -8,24 +8,13 @@
 
             <xpath expr="//div[hasclass('oe_button_box')]" position="inside">
 
-                <button name="action_view_inspection"
-                        type="object"
-                        class="oe_stat_button"
-                        icon="fa-search"
-                        invisible="inspection_id == False">
-                    <div class="o_field_widget o_stat_info">
-                        <span class="o_stat_value">
-                            <field name="inspection_count"/>
-                        </span>
-                        <span class="o_stat_text">Inspection</span>
-                    </div>
-                </button>
 
                 <button name="action_view_maintenance_task"
                         type="object"
                         class="oe_stat_button"
                         icon="fa-wrench"
-                        invisible="maintenance_task_id == False">
+                        invisible="maintenance_task_id == False"
+                groups="asset_management.group_asset_inspector,asset_management.group_asset_manager">
                     <div class="o_field_widget o_stat_info">
                         <span class="o_stat_value">
                             <field name="maintenance_task_count"/>
@@ -38,17 +27,15 @@
 
             <xpath expr="//header" position="inside">
 
+                <!-- "Schedule Inspection" button is kept with same name for backward compat
+                     but now opens the new asset.schedule.task.wizard -->
                 <button name="action_schedule_inspection"
-                        string="Schedule Inspection"
+                        string="Schedule Task"
                         type="object"
                         class="btn-primary"
-                        invisible="inspection_id != False"/>
-
-                <button name="action_create_maintenance_task"
-                        string="Create Maintenance Task"
-                        type="object"
-                        class="btn-secondary"
-                        invisible="inspection_state != 'completed' or maintenance_task_id != False"/>
+                        invisible="maintenance_task_id != False"
+                        groups="asset_management.group_asset_ticket_manager,asset_management.group_asset_manager"/>
+                />
 
             </xpath>
 
@@ -59,24 +46,19 @@
                         <field name="cafm_ticket_id"
                                readonly="1"
                                invisible="cafm_ticket_id == False"/>
-                    </group>
-                    <group>
-                        <field name="inspection_id"
+                        <field name="manager_approval_state"
                                readonly="1"
-                               invisible="inspection_id == False"/>
-                        <field name="inspection_state"
-                               readonly="1"
-                               invisible="inspection_id == False"
                                widget="badge"
-                               decoration-secondary="inspection_state == 'new'"
-                               decoration-info="inspection_state == 'scheduled'"
-                               decoration-warning="inspection_state in ('request_material', 'material_collected', 'in_progress')"
-                               decoration-success="inspection_state == 'completed'"
-                               decoration-danger="inspection_state in ('cancelled', 'escalated')"/>
+                               invisible="not manager_approval_state"
+                               decoration-warning="manager_approval_state == 'waiting_manager_approval'"
+                               decoration-success="manager_approval_state == 'approved'"
+                               decoration-danger="manager_approval_state == 'denied'"/>
+                        <field name="manager_id" readonly="1" invisible="not manager_id"/>
                         <field name="maintenance_task_id"
                                readonly="1"
                                invisible="maintenance_task_id == False"/>
                     </group>
+                    <group/>
 
                     <!-- AMC Contract Info — shown only when asset is linked to a contract -->
                     <group string="AMC Contract" invisible="not contract_id">

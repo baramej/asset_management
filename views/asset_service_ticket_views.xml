@@ -59,11 +59,13 @@
         <field name="arch" type="xml">
 
             <xpath expr="//header" position="inside">
-                <button name="action_create_maintenance_task"
+                <button name="action_view_maintenance_task"
                         type="object"
-                        string="Create Maintenance Task"
+                        string="View Maintenance Task"
                         class="btn-secondary"
-                        />
+                        invisible="maintenance_task_id == False"
+                        groups="asset_management.group_asset_inspector,asset_management.group_asset_manager"
+                />
             </xpath>
 
         </field>

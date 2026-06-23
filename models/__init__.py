@@ -16,3 +16,5 @@ from . import asset_maintenance_task_ext
 from . import cron_pm_multi
 from . import migration_pm_schedules
 from . import flat_checklist
+from . import asset_rca
+from . import asset_manpower_billing

@@ -97,17 +97,30 @@ class AssetFlatChecklistTemplateLine(models.Model):
         return super().create(vals_list)
 
 
-
 class AssetFlatChecklistLine(models.Model):
+    """
+    Flat checklist lines — now linked directly to the maintenance task
+    (previously linked to asset.inspection which has been removed from the flow).
+    When a job order is created from the task, these lines are copied across
+    via action_load_checklist_to_job_order on asset.job.order.
+    """
     _name = "asset.flat.checklist.line"
-    _description = "Flat Inspection Checklist Line"
+    _description = "Flat Checklist Line"
     _order = "section, sequence, id"
 
-    inspection_id = fields.Many2one(
-        "asset.inspection",
-        required=True,
+    # Primary parent: maintenance task (pre-job-order stage)
+    task_id = fields.Many2one(
+        "asset.maintenance.task",
         ondelete="cascade",
+        index=True,
     )
+    # Secondary parent: job order (post-job-order creation stage)
+    job_order_id = fields.Many2one(
+        "asset.job.order",
+        ondelete="cascade",
+        index=True,
+    )
+
     sequence = fields.Integer(default=10)
 
     section = fields.Selection([
@@ -148,14 +161,17 @@ class AssetFlatChecklistLine(models.Model):
         return super().create(vals_list)
 
 
+class AssetMaintenanceTaskFlatExtension(models.Model):
+    """
+    Extends asset.maintenance.task with flat-inspection fields
+    (previously on asset.inspection via AssetInspectionFlatExtension).
+    """
+    _inherit = "asset.maintenance.task"
 
-class AssetInspectionFlatExtension(models.Model):
-    _inherit = "asset.inspection"
-
-    inspection_type = fields.Selection([
-        ("general", "General Inspection"),
+    job_type = fields.Selection([
+        ("general", "General Job"),
         ("flat", "Flat Inspection"),
-    ], string="Inspection Type", default="general", required=True, tracking=True)
+    ], string="Job Type", default="general", required=True, tracking=True)
 
     flat_asset_id = fields.Many2one(
         "account.asset",
@@ -170,30 +186,30 @@ class AssetInspectionFlatExtension(models.Model):
         help="Select the template matching this flat type.",
     )
 
-    checklist_line_ids = fields.One2many(
-        "asset.flat.checklist.line", "inspection_id",
+    flat_checklist_line_ids = fields.One2many(
+        "asset.flat.checklist.line", "task_id",
         string="Checklist",
     )
-    checklist_keys_ids = fields.One2many(
-        "asset.flat.checklist.line", "inspection_id",
+    flat_checklist_keys_ids = fields.One2many(
+        "asset.flat.checklist.line", "task_id",
         string="Keys",
         context={"default_section": "keys"},
         domain=lambda self: [("section", "=", "keys")],
     )
-    checklist_electrical_ids = fields.One2many(
-        "asset.flat.checklist.line", "inspection_id",
+    flat_checklist_electrical_ids = fields.One2many(
+        "asset.flat.checklist.line", "task_id",
         string="Electrical",
         context={"default_section": "electrical"},
         domain=lambda self: [("section", "=", "electrical")],
     )
-    checklist_plumbing_ids = fields.One2many(
-        "asset.flat.checklist.line", "inspection_id",
+    flat_checklist_plumbing_ids = fields.One2many(
+        "asset.flat.checklist.line", "task_id",
         string="Plumbing",
         context={"default_section": "plumbing"},
         domain=lambda self: [("section", "=", "plumbing")],
     )
-    checklist_general_ids = fields.One2many(
-        "asset.flat.checklist.line", "inspection_id",
+    flat_checklist_general_ids = fields.One2many(
+        "asset.flat.checklist.line", "task_id",
         string="General / Damages",
         context={"default_section": "general"},
         domain=lambda self: [("section", "=", "general")],
@@ -209,10 +225,10 @@ class AssetInspectionFlatExtension(models.Model):
         compute="_compute_checklist_stats", string="Checklist Progress %"
     )
 
-    @api.depends("checklist_line_ids.status")
+    @api.depends("flat_checklist_line_ids.status")
     def _compute_checklist_stats(self):
         for rec in self:
-            lines = rec.checklist_line_ids
+            lines = rec.flat_checklist_line_ids
             total = len(lines)
             done = len(lines.filtered(lambda l: l.status in ("ok", "missing", "damaged", "na")))
             rec.checklist_total = total
@@ -220,10 +236,11 @@ class AssetInspectionFlatExtension(models.Model):
             rec.checklist_progress = (done / total * 100) if total else 0.0
 
     def action_load_checklist(self):
+        """Load checklist lines from the selected template into this task."""
         self.ensure_one()
         if not self.checklist_template_id:
             raise UserError(_("Please select a Checklist Template first."))
-        self.checklist_line_ids.unlink()
+        self.flat_checklist_line_ids.unlink()
         lines = []
         for tpl_line in self.checklist_template_id.line_ids:
             lines.append((0, 0, {
@@ -234,10 +251,153 @@ class AssetInspectionFlatExtension(models.Model):
                 "is_meter_reading": tpl_line.is_meter_reading,
                 "source_line_id": tpl_line.id,
             }))
-        self.checklist_line_ids = lines
+        self.flat_checklist_line_ids = lines
         return True
 
     @api.onchange("checklist_template_id")
     def _onchange_checklist_template(self):
-        if self.checklist_template_id and self.inspection_type == "flat":
+        if self.checklist_template_id and self.job_type == "flat":
             self.action_load_checklist()
+
+
+class AssetJobOrderFlatExtension(models.Model):
+    """
+    Extends asset.job.order with flat-inspection checklist fields.
+    When a job order is created from a flat-type maintenance task,
+    the checklist lines are copied here so technicians can fill them in
+    during execution.
+    """
+    _inherit = "asset.job.order"
+
+    job_type = fields.Selection(
+        related="maintenance_task_id.job_type",
+        store=True,
+        readonly=True,
+        string="Job Type",
+    )
+
+    flat_asset_id = fields.Many2one(
+        "account.asset",
+        related="maintenance_task_id.flat_asset_id",
+        store=True,
+        readonly=True,
+        string="Flat / Unit",
+    )
+    resident_name = fields.Char(
+        related="maintenance_task_id.resident_name",
+        store=True,
+        readonly=True,
+        string="Resident Name",
+    )
+    flat_no = fields.Char(
+        related="maintenance_task_id.flat_no",
+        store=True,
+        readonly=True,
+        string="Flat No.",
+    )
+    checklist_template_id = fields.Many2one(
+        "asset.flat.checklist.template",
+        related="maintenance_task_id.checklist_template_id",
+        store=True,
+        readonly=True,
+        string="Checklist Template",
+    )
+
+    flat_checklist_line_ids = fields.One2many(
+        "asset.flat.checklist.line", "job_order_id",
+        string="Checklist",
+    )
+    flat_checklist_keys_ids = fields.One2many(
+        "asset.flat.checklist.line", "job_order_id",
+        string="Keys",
+        context={"default_section": "keys"},
+        domain=lambda self: [("section", "=", "keys")],
+    )
+    flat_checklist_electrical_ids = fields.One2many(
+        "asset.flat.checklist.line", "job_order_id",
+        string="Electrical",
+        context={"default_section": "electrical"},
+        domain=lambda self: [("section", "=", "electrical")],
+    )
+    flat_checklist_plumbing_ids = fields.One2many(
+        "asset.flat.checklist.line", "job_order_id",
+        string="Plumbing",
+        context={"default_section": "plumbing"},
+        domain=lambda self: [("section", "=", "plumbing")],
+    )
+    flat_checklist_general_ids = fields.One2many(
+        "asset.flat.checklist.line", "job_order_id",
+        string="General / Damages",
+        context={"default_section": "general"},
+        domain=lambda self: [("section", "=", "general")],
+    )
+
+    checked_by = fields.Char(
+        related="maintenance_task_id.checked_by",
+        store=True,
+        readonly=False,
+        string="Checked By (M/S)",
+    )
+    resident_signature = fields.Binary(string="Resident Signature")
+    resident_signature_name = fields.Char(string="Resident Name (Signature)")
+
+    checklist_total = fields.Integer(compute="_compute_jo_checklist_stats")
+    checklist_done = fields.Integer(compute="_compute_jo_checklist_stats")
+    checklist_progress = fields.Float(
+        compute="_compute_jo_checklist_stats", string="Checklist Progress %"
+    )
+
+    @api.depends("flat_checklist_line_ids.status")
+    def _compute_jo_checklist_stats(self):
+        for rec in self:
+            lines = rec.flat_checklist_line_ids
+            total = len(lines)
+            done = len(lines.filtered(lambda l: l.status in ("ok", "missing", "damaged", "na")))
+            rec.checklist_total = total
+            rec.checklist_done = done
+            rec.checklist_progress = (done / total * 100) if total else 0.0
+
+    def action_load_checklist_to_job_order(self):
+        """
+        Copy checklist lines from the linked maintenance task into this job order.
+        Called automatically when a job order is created from a flat-type task.
+        """
+        self.ensure_one()
+        task = self.maintenance_task_id
+        if not task or task.job_type != "flat":
+            return True
+
+        # If task already has checklist lines, copy them
+        if task.flat_checklist_line_ids:
+            self.flat_checklist_line_ids.unlink()
+            new_lines = []
+            for line in task.flat_checklist_line_ids:
+                new_lines.append((0, 0, {
+                    "sequence": line.sequence,
+                    "section": line.section,
+                    "description": line.description,
+                    "expected_qty": line.expected_qty,
+                    "is_meter_reading": line.is_meter_reading,
+                    "source_line_id": line.source_line_id.id if line.source_line_id else False,
+                    "status": line.status,
+                    "remarks": line.remarks,
+                    "meter_value": line.meter_value,
+                    "meter_date": line.meter_date,
+                }))
+            self.flat_checklist_line_ids = new_lines
+        elif task.checklist_template_id:
+            # Fall back to loading from template if task lines are empty
+            self.flat_checklist_line_ids.unlink()
+            new_lines = []
+            for tpl_line in task.checklist_template_id.line_ids:
+                new_lines.append((0, 0, {
+                    "sequence": tpl_line.sequence,
+                    "section": tpl_line.section,
+                    "description": tpl_line.description,
+                    "expected_qty": tpl_line.expected_qty,
+                    "is_meter_reading": tpl_line.is_meter_reading,
+                    "source_line_id": tpl_line.id,
+                }))
+            self.flat_checklist_line_ids = new_lines
+
+        return True

@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="portal_helpdesk_manager_approval" name="Helpdesk Ticket — Manager Approval">
+        <t t-call="portal.portal_layout">
+            <div class="container mt-4 mb-5">
+                <div class="card shadow-sm">
+                    <div class="card-header text-white" style="background-color:#1a1a2e;">
+                        <h3 class="mb-0">
+                            <i class="fa fa-ticket mr-2"/>
+                            Helpdesk Ticket Approval —
+                            <t t-esc="ticket.name"/>
+                        </h3>
+                    </div>
+
+                    <div class="card-body">
+
+                        <!-- Result banner after action -->
+                        <t t-if="request.params.get('done') == 'approved'">
+                            <div class="alert alert-success">
+                                <i class="fa fa-check-circle mr-2"/>
+                                <strong>Approved!</strong> The ticket has been forwarded to the support team.
+                            </div>
+                        </t>
+                        <t t-elif="request.params.get('done') == 'denied'">
+                            <div class="alert alert-danger">
+                                <i class="fa fa-times-circle mr-2"/>
+                                <strong>Denied.</strong> The ticket has been closed.
+                            </div>
+                        </t>
+
+                        <!-- Current state banner -->
+                        <t t-if="not request.params.get('done')">
+                            <t t-if="ticket.manager_approval_state == 'waiting_manager_approval'">
+                                <div class="alert alert-warning">
+                                    <i class="fa fa-clock-o mr-2"/>
+                                    This ticket is <strong>awaiting your decision</strong>.
+                                </div>
+                            </t>
+                            <t t-elif="ticket.manager_approval_state == 'approved'">
+                                <div class="alert alert-success">
+                                    Ticket already <strong>approved</strong>.
+                                </div>
+                            </t>
+                            <t t-elif="ticket.manager_approval_state == 'denied'">
+                                <div class="alert alert-danger">
+                                    Ticket already <strong>denied</strong>.
+                                </div>
+                            </t>
+                        </t>
+
+                        <!-- Ticket details -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <h5>Ticket Details</h5>
+                                <table class="table table-sm table-bordered">
+                                    <tr>
+                                        <th style="width:40%;background:#f5f5f5;">Reference</th>
+                                        <td><t t-esc="ticket.name"/></td>
+                                    </tr>
+                                    <tr>
+                                        <th style="background:#f5f5f5;">Submitted By</th>
+                                        <td><t t-esc="ticket.partner_id.name or '—'"/></td>
+                                    </tr>
+                                    <tr>
+                                        <th style="background:#f5f5f5;">Priority</th>
+                                        <td><t t-esc="ticket.priority or '—'"/></td>
+                                    </tr>
+                                    <tr>
+                                        <th style="background:#f5f5f5;">Created</th>
+                                        <td>
+                                            <t t-esc="ticket.create_date"
+                                               t-options="{'widget': 'datetime'}"/>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+                            <div class="col-md-6">
+                                <h5>Description</h5>
+                                <div class="border rounded p-3 bg-light" style="min-height:100px;">
+                                    <t t-esc="ticket.description or 'No description provided.'"/>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Asset info if present -->
+                        <t t-if="ticket.asset_id">
+                            <div class="mb-4">
+                                <h5>Related Asset</h5>
+                                <p>
+                                    <strong>Asset:</strong>
+                                    <t t-esc="ticket.asset_id.name"/>
+                                </p>
+                            </div>
+                        </t>
+
+                        <!-- Action buttons — only show when still pending -->
+                        <t t-if="ticket.manager_approval_state == 'waiting_manager_approval' and not request.params.get('done')">
+                            <hr/>
+                            <h5>Your Decision</h5>
+                            <div class="row">
+                                <!-- Approve -->
+                                <div class="col-md-6 mb-3">
+                                    <form t-attf-action="/helpdesk/ticket/{{ ticket.id }}/manager-approve"
+                                          method="POST">
+                                        <input type="hidden" name="token" t-att-value="token"/>
+                                        <input type="hidden" name="csrf_token"
+                                               t-att-value="request.csrf_token()"/>
+                                        <button type="submit"
+                                                class="btn btn-success btn-lg w-100">
+                                            <i class="fa fa-check mr-2"/>
+                                            Approve Ticket
+                                        </button>
+                                    </form>
+                                </div>
+                                <!-- Deny -->
+                                <div class="col-md-6 mb-3">
+                                    <form t-attf-action="/helpdesk/ticket/{{ ticket.id }}/manager-deny"
+                                          method="POST">
+                                        <input type="hidden" name="token" t-att-value="token"/>
+                                        <input type="hidden" name="csrf_token"
+                                               t-att-value="request.csrf_token()"/>
+                                        <div class="mb-2">
+                                            <label for="reason" class="form-label">
+                                                Reason for denial (optional)
+                                            </label>
+                                            <textarea name="reason" id="reason"
+                                                      class="form-control" rows="3"
+                                                      placeholder="Explain why this ticket is being denied…"/>
+                                        </div>
+                                        <button type="submit"
+                                                class="btn btn-danger btn-lg w-100">
+                                            <i class="fa fa-times mr-2"/>
+                                            Deny Ticket
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </t>
+
+                    </div><!-- /card-body -->
+                </div><!-- /card -->
+            </div>
+        </t>
+    </template>
+</odoo>

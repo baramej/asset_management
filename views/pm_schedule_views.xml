@@ -209,13 +209,6 @@
                         invisible="not requires_supervisor_signoff or supervisor_signoff_state in ['pending','approved']"/>
             </xpath>
 
-            <xpath expr="//page[@name='checklist']//field[@name='checklist_line_ids']//list//field[@name='notes']"
-                   position="before">
-                <field name="done_by_id" readonly="1"
-                       widget="many2one_avatar_user"
-                       optional="show"/>
-                <field name="done_date" readonly="1" optional="show"/>
-            </xpath>
 
             <xpath expr="//page[@name='description_notes']" position="after">
                 <page string="Sign-off"

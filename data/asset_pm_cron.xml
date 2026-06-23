@@ -19,4 +19,24 @@
             <field name="padding">4</field>
         </record>
     </data>
+    <data noupdate="1">
+        <record id="cron_auto_close_unsigned_job_orders" model="ir.cron">
+            <field name="name">Job Orders: Auto-close unsigned after 5 days</field>
+            <field name="model_id" ref="model_asset_job_order"/>
+            <field name="state">code</field>
+            <field name="code">model.cron_auto_close_unsigned_jobs()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="active">True</field>
+        </record>
+    </data>
+    <record id="cron_send_task_reminders" model="ir.cron">
+        <field name="name">Asset Tasks: Send Responsible Reminders</field>
+        <field name="model_id" ref="model_asset_maintenance_task"/>
+        <field name="state">code</field>
+        <field name="code">model.cron_send_task_reminders()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active">True</field>
+    </record>
 </odoo>

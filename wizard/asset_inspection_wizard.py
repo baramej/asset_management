@@ -131,9 +131,9 @@ class AssetInspectionWizard(models.TransientModel):
         if not self.maintenance_team_id or not self.maintenance_team_id.team_leader_id:
             return
 
-        leader = self.maintenance_team_id.team_leader_id  # res.users
-
-        if not leader.email:
+        leader = self.maintenance_team_id.team_leader_id  # hr.employee
+        leader_email = leader.work_email  # employees use work_email
+        if not leader_email:
             return
 
         base = self.env["ir.config_parameter"].sudo().get_param("web.base.url", "")
@@ -249,7 +249,7 @@ class AssetInspectionWizard(models.TransientModel):
         mail = self.env["mail.mail"].sudo().create({
             "subject": subject,
             "body_html": body_html,
-            "email_to": leader.email,
+            "email_to": leader_email,
             "author_id": self.env.user.partner_id.id,
             "auto_delete": False,
             "state": "outgoing",
@@ -263,7 +263,7 @@ class AssetInspectionWizard(models.TransientModel):
                     "Failed to send inspection assignment email to team leader "
                     "<b>%(name)s</b> (%(email)s): %(error)s",
                     name=leader.name,
-                    email=leader.email,
+                    email=leader_email,
                     error=str(e),
                 ),
                 subtype_xmlid="mail.mt_note",
@@ -275,7 +275,7 @@ class AssetInspectionWizard(models.TransientModel):
                 "Inspection assignment email sent to team leader "
                 "<b>%(name)s</b> (%(email)s).",
                 name=leader.name,
-                email=leader.email,
+                email=leader_email,
             ),
             subtype_xmlid="mail.mt_note",
         )
@@ -308,17 +308,8 @@ class AssetInspectionWizard(models.TransientModel):
         if self.maintenance_team_id:
             team = self.maintenance_team_id
             if team.team_leader_id:
-                leader_emp = self.env["hr.employee"].search(
-                    [("user_id", "=", team.team_leader_id.id)], limit=1
-                )
-                if leader_emp:
-                    employees |= leader_emp
-            for member in team.member_ids:
-                member_emp = self.env["hr.employee"].search(
-                    [("user_id", "=", member.id)], limit=1
-                )
-                if member_emp:
-                    employees |= member_emp
+                employees |= team.team_leader_id  # already hr.employee
+            employees |= team.member_ids  # already hr.employee
         employees |= self.employee_ids
 
         if employees:

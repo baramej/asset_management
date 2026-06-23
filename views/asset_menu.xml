@@ -4,14 +4,15 @@
               name="Asset Management"
               sequence="10"
               web_icon="asset_management,static/description/icon.png"
+              groups="asset_management.group_asset_storekeeper,asset_management.group_asset_inspector,asset_management.group_asset_manager"
     />
-    <!-- Dashboard Menu -->
+
+    <!-- Dashboard -->
     <menuitem id="facility_dashboard_menu"
               name="Dashboard"
               parent="menu_asset_mgmt_root"
               action="action_facility_dashboard"
               sequence="1"/>
-
 
     <!-- Assets -->
     <menuitem id="menu_asset_mgmt_assets"
@@ -20,18 +21,35 @@
               action="action_asset_mgmt_assets"
               sequence="10"/>
 
+    <!-- Asset Tagging (parent) -->
+    <menuitem id="menu_asset_mgmt_tagging"
+              name="Asset Tagging"
+              parent="menu_asset_mgmt_root"
+              sequence="20"/>
 
+    <menuitem id="menu_asset_mgmt_tagging_tag"
+              name="Asset Tagging"
+              parent="menu_asset_mgmt_tagging"
+              action="action_asset_tagging"
+              sequence="10"/>
+
+    <menuitem id="menu_asset_mgmt_tagging_move"
+              name="Asset Move"
+              parent="menu_asset_mgmt_tagging"
+              action="action_asset_move_wizard"
+              sequence="20"/>
+
+    <menuitem id="menu_asset_mgmt_tagging_assign_responsible"
+              name="Assign Responsible"
+              parent="menu_asset_mgmt_tagging"
+              action="action_asset_assign_responsible_wizard"
+              sequence="30"/>
+
+    <!-- Maintenance (parent) -->
     <menuitem id="menu_asset_mgmt_maintenance"
               name="Maintenance"
               parent="menu_asset_mgmt_root"
               sequence="30"/>
-
-    <menuitem
-            id="menu_helpdesk_inspections"
-            name="Inspections"
-            parent="menu_asset_mgmt_root"
-            action="action_asset_inspection"
-            sequence="40"/>
 
     <menuitem id="menu_asset_mgmt_tasks"
               name="Maintenance Tasks"
@@ -45,74 +63,68 @@
               action="action_asset_maintenance_contract"
               sequence="2"/>
 
-    <menuitem id="menu_asset_pm_schedules_maintenance"
-              name="PM Schedules"
-              parent="menu_asset_mgmt_maintenance"
-              action="action_asset_pm_schedule"
-              sequence="5"/>
-
-
     <menuitem id="menu_asset_mgmt_maintenance_teams"
               name="Maintenance Teams"
               parent="menu_asset_mgmt_maintenance"
               action="action_asset_maintenance_team"
               sequence="3"/>
 
+    <menuitem id="menu_asset_pm_schedules_maintenance"
+              name="PM Schedules"
+              parent="menu_asset_mgmt_maintenance"
+              action="action_asset_pm_schedule"
+              sequence="5"/>
+
+    <!-- Job Orders -->
     <menuitem id="menu_asset_mgmt_job_orders"
               name="Job Orders"
               parent="menu_asset_mgmt_root"
               action="action_asset_job_order"
               sequence="50"/>
 
-    <!-- Parent: Asset Tagging -->
-    <menuitem id="menu_asset_mgmt_tagging"
-              name="Asset Tagging"
+    <!-- RCA (parent) -->
+    <menuitem id="menu_asset_rca_root"
+              name="RCA"
               parent="menu_asset_mgmt_root"
-              sequence="20"/>
+              sequence="55"/>
 
-    <!-- Child: Tagging form (your existing action) -->
-    <menuitem id="menu_asset_mgmt_tagging_tag"
-              name="Asset Tagging"
-              parent="menu_asset_mgmt_tagging"
-              action="action_asset_tagging"
+    <menuitem id="menu_asset_rca_candidates"
+              name="Flagged Assets"
+              parent="menu_asset_rca_root"
+              action="action_asset_rca_candidate"
               sequence="10"/>
 
-
-    <!-- Child: Asset Move -->
-    <menuitem id="menu_asset_mgmt_tagging_move"
-              name="Asset Move"
-              parent="menu_asset_mgmt_tagging"
-              action="action_asset_move_wizard"
+    <menuitem id="menu_asset_rca_reports"
+              name="RCA Reports"
+              parent="menu_asset_rca_root"
+              action="action_asset_rca_report"
               sequence="20"/>
 
-    <!-- Child: Asset Assign Responsible -->
-    <menuitem id="menu_asset_mgmt_tagging_assign_responsible"
-              name="Assign Responsible"
-              parent="menu_asset_mgmt_tagging"
-              action="action_asset_assign_responsible_wizard"
-              sequence="30"/>
+    <!-- Manpower Billing (parent) -->
+    <menuitem id="menu_manpower_billing_root"
+              name="Manpower Billing"
+              parent="menu_asset_mgmt_root"
+              sequence="57"/>
 
+    <menuitem id="menu_manpower_batches"
+              name="Import Batches"
+              parent="menu_manpower_billing_root"
+              action="action_manpower_import_batch"
+              sequence="10"/>
 
+    <menuitem id="menu_manpower_summaries"
+              name="Billing Summaries"
+              parent="menu_manpower_billing_root"
+              action="action_manpower_billing_summary"
+              sequence="20"/>
+
+    <!-- Configuration (parent) — must be defined BEFORE any child that references it -->
     <menuitem id="menu_asset_mgmt_config"
               name="Configuration"
               parent="menu_asset_mgmt_root"
               sequence="60"/>
 
-    <!-- Checklist Templates -->
-    <menuitem id="menu_asset_checklist_templates"
-              name="Checklist Templates"
-              parent="menu_asset_mgmt_config"
-              action="action_asset_checklist_template"
-              sequence="30"/>
-
-    <!-- PM Schedules -->
-    <menuitem id="menu_asset_pm_schedules"
-              name="PM Schedules"
-              parent="menu_asset_mgmt_config"
-              action="action_asset_pm_schedule"
-              sequence="40"/>
-
-    <!-- 1) Asset Models -->
+    <!-- Asset Models -->
     <record id="action_asset_models" model="ir.actions.act_window">
         <field name="name">Asset Models</field>
         <field name="res_model">account.asset</field>
@@ -132,8 +144,7 @@
               action="action_asset_models"
               sequence="10"/>
 
-
-    <!-- 2) Departments (using hr.department model) -->
+    <!-- Departments -->
     <record id="action_asset_departments" model="ir.actions.act_window">
         <field name="name">Departments</field>
         <field name="res_model">hr.department</field>
@@ -151,5 +162,39 @@
               parent="menu_asset_mgmt_config"
               action="action_asset_location"
               sequence="20"/>
+
+    <!-- Checklist Templates -->
+    <menuitem id="menu_asset_checklist_templates"
+              name="Checklist Templates"
+              parent="menu_asset_mgmt_config"
+              action="action_asset_checklist_template"
+              sequence="30"/>
+
+    <!-- PM Schedules -->
+    <menuitem id="menu_asset_pm_schedules"
+              name="PM Schedules"
+              parent="menu_asset_mgmt_config"
+              action="action_asset_pm_schedule"
+              sequence="40"/>
+
+    <!-- RCA Rules — now AFTER menu_asset_mgmt_config is defined -->
+    <menuitem id="menu_asset_rca_config"
+              name="RCA Rules"
+              parent="menu_asset_mgmt_config"
+              action="action_asset_rca_config"
+              sequence="50"/>
+
+    <!-- Manpower Config — now AFTER menu_asset_mgmt_config is defined -->
+    <menuitem id="menu_manpower_config"
+              name="Manpower Config"
+              parent="menu_asset_mgmt_config"
+              action="action_manpower_billing_config"
+              sequence="60"/>
+
+    <menuitem id="menu_asset_task_assignment_rules"
+          name="Task Assignment Rules"
+          parent="menu_asset_mgmt_config"
+          action="action_asset_task_assignment_rule"
+          sequence="35"/>
 
 </odoo>

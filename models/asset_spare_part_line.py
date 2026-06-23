@@ -7,7 +7,7 @@ class AssetSparePartLine(models.Model):
     asset_id = fields.Many2one(
         "account.asset",
         string="Asset",
-        required=True,
+        required=False,
         ondelete="cascade"
     )
 

@@ -1,6 +1,9 @@
+from datetime import timedelta
+
 from odoo import models, fields, api, _
 from odoo.exceptions import UserError
 import logging
+import uuid  # ← add this
 
 _logger = logging.getLogger(__name__)
 
@@ -19,16 +22,12 @@ class AssetJobOrder(models.Model):
         "account.asset", related="maintenance_task_id.asset_id",
         store=True, readonly=True,
     )
-    inspection_id = fields.Many2one(
-        "asset.inspection", related="maintenance_task_id.inspection_id",
-        store=True, readonly=True,
-    )
     helpdesk_ticket_id = fields.Many2one(
         "helpdesk.ticket", related="maintenance_task_id.helpdesk_ticket_id",
         store=True, readonly=True,
     )
     assigned_user_id = fields.Many2one(
-        "res.users", related="maintenance_task_id.assigned_user_id",
+        "hr.employee", related="maintenance_task_id.assigned_user_id",
         store=True,
     )
     maintenance_team_id = fields.Many2one(
@@ -47,6 +46,7 @@ class AssetJobOrder(models.Model):
         ("request_material", "Material Requested"),
         ("material_approved", "Material Approved"),
         ("in_progress", "In Progress"),
+        ("waiting_outsource", "Waiting Outsource"),
         ("done", "Done"),
         ("approved", "Approved"),
         ("closed", "Closed"),
@@ -71,14 +71,6 @@ class AssetJobOrder(models.Model):
         "asset.technician.log", "job_order_id", string="Time Logs"
 
     )
-    bill_inspection = fields.Boolean(
-        string="Also Bill from Inspection",
-        default=False,
-        tracking=True,
-        help="When enabled, labour hours and consumed materials from the linked inspection "
-             "will be included in the invoice.",
-    )
-
     customer_approval = fields.Boolean(
         string="Customer Approval Required",
         default=True,
@@ -96,6 +88,75 @@ class AssetJobOrder(models.Model):
 
     closed_by_name = fields.Char(string="Closed By (Signature)", readonly=True)
     closed_by_signature = fields.Binary(string="Signature", readonly=True)
+
+    access_token = fields.Char(
+        string="Access Token",
+        copy=False,
+        readonly=True,
+    )
+    portal_signature = fields.Binary(
+        string="Customer Signature",
+        copy=False,
+        readonly=True,
+    )
+    portal_signed_by = fields.Char(
+        string="Signed By",
+        copy=False,
+        readonly=True,
+    )
+    portal_signed_on = fields.Datetime(
+        string="Signed On",
+        copy=False,
+        readonly=True,
+    )
+    portal_signed_ip = fields.Char(
+        string="Signed From IP",
+        copy=False,
+        readonly=True,
+    )
+    signature_state = fields.Selection([
+        ("pending", "Not Sent"),
+        ("sent", "Sent — Awaiting Signature"),
+        ("signed", "Signed"),
+    ], string="Signature Status", default="pending", tracking=True, copy=False)
+
+    signature_sent_on = fields.Datetime(
+        string="Signature Request Sent On",
+        copy=False,
+        readonly=True,
+        help="Timestamp when the signature email was sent. Used for auto-close after 5 days.",
+    )
+
+    is_outsourced = fields.Boolean(
+        string="Outsource Job?",
+        default=False,
+        tracking=True,
+        help="When enabled, the job is handled by an external party. "
+             "Attach their job order document to close.",
+    )
+    outsource_vendor_id = fields.Many2one(
+        "res.partner",
+        string="Outsource Vendor",
+        tracking=True,
+        help="The external company or contractor handling this job.",
+    )
+    outsource_reference = fields.Char(
+        string="Vendor Reference",
+        tracking=True,
+        help="The external job order number or reference from the vendor.",
+    )
+    outsource_attachment_ids = fields.Many2many(
+        "ir.attachment",
+        "job_order_outsource_attachment_rel",
+        "job_order_id",
+        "attachment_id",
+        string="Vendor Job Documents",
+        help="Attach the external vendor's job order, report, or completion certificate.",
+    )
+    outsource_notes = fields.Text(
+        string="Outsource Notes",
+        help="Any notes about the outsourced work.",
+    )
 
     def action_view_maintenance_task(self):
         self.ensure_one()
@@ -146,7 +207,6 @@ class AssetJobOrder(models.Model):
                     lambda f: f.status in ("done", "cannot_fix")
                 ))
                 rec.findings_completion_rate = (done / total) * 100
-
 
     def write(self, vals):
         result = super().write(vals)
@@ -221,15 +281,24 @@ class AssetJobOrder(models.Model):
                 "Materials are still pending Storekeeper approval. "
                 "Please wait for all material requests to be approved before starting work."
             ))
-        self.write({
-            "state": "in_progress",
-            "start_datetime": fields.Datetime.now(),
-        })
-        if self.maintenance_task_id and self.maintenance_task_id.state == "assigned":
-            self.maintenance_task_id.state = "in_progress"
-        self.message_post(
-            body=_("Work started by %s.") % self.env.user.name
-        )
+        if self.is_outsourced:
+            self.write({
+                "state": "waiting_outsource",
+                "start_datetime": fields.Datetime.now(),
+            })
+            self.message_post(
+                body=_("Outsourced job submitted by %s — waiting for vendor completion.") % self.env.user.name
+            )
+        else:
+            self.write({
+                "state": "in_progress",
+                "start_datetime": fields.Datetime.now(),
+            })
+            if self.maintenance_task_id and self.maintenance_task_id.state == "assigned":
+                self.maintenance_task_id.state = "in_progress"
+            self.message_post(
+                body=_("Work started by %s.") % self.env.user.name
+            )
 
     def action_end_work(self):
         self.ensure_one()
@@ -241,6 +310,165 @@ class AssetJobOrder(models.Model):
             "target": "new",
             "context": {"default_job_order_id": self.id},
         }
+
+    def action_wait_outsource(self):
+        self.ensure_one()
+        if not self.is_outsourced:
+            raise UserError(_("This job order is not marked as outsourced."))
+        self.write({"state": "waiting_outsource"})
+        self.message_post(
+            body=_(
+                "Job Order is now <b>Waiting for Outsource Completion</b>. "
+                "Submitted by <b>%s</b>. Attach the vendor's job order document when received."
+            ) % self.env.user.name
+        )
+
+    def action_complete_outsource(self):
+        self.ensure_one()
+        if not self.outsource_attachment_ids:
+            raise UserError(_(
+                "Please attach the vendor's job order or completion document "
+                "before closing the outsourced job."
+            ))
+        self.write({
+            "state": "done",
+            "end_datetime": fields.Datetime.now(),
+        })
+        self.message_post(
+            body=_(
+                "Outsourced job completed by <b>%s</b>. "
+                "Vendor document(s) attached: <b>%s</b>."
+            ) % (
+                     self.env.user.name,
+                     ", ".join(self.outsource_attachment_ids.mapped("name")),
+                 )
+        )
+
+    def _get_or_create_access_token(self):
+        self.ensure_one()
+        if not self.access_token:
+            self.access_token = str(uuid.uuid4())
+        return self.access_token
+
+    def action_send_signature_email(self):
+        self.ensure_one()
+        token = self._get_or_create_access_token()
+
+        base_url = self.env["ir.config_parameter"].sudo().get_param("web.base.url", "")
+        portal_url = f"{base_url}/my/job_order/{self.id}?access_token={token}"
+
+        customer = (
+                self.billing_partner_id
+                or (self.asset_id.customer_id if self.asset_id else False)
+                or (self.helpdesk_ticket_id.partner_id if self.helpdesk_ticket_id else False)
+        )
+
+        if not customer or not customer.email:
+            raise UserError(_(
+                "No customer email found. "
+                "Please set the Billing Entity (with a valid email) before sending the signature request."
+            ))
+
+        customer_name = customer.name or "Customer"
+        asset_name = self.asset_id.name if self.asset_id else "N/A"
+        scheduled = str(self.scheduled_date or "N/A")
+        team = self.maintenance_team_id.name if self.maintenance_team_id else "N/A"
+
+        body_html = f"""
+        <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;
+                    border:1px solid #e0e0e0;border-radius:6px;overflow:hidden;">
+            <div style="background-color:#1a1a2e;padding:24px 32px;">
+                <h2 style="color:#ffffff;margin:0;">Job Order Sign-Off Request</h2>
+            </div>
+            <div style="padding:24px 32px;background-color:#ffffff;">
+                <p style="color:#333;font-size:15px;">Dear {customer_name},</p>
+                <p style="color:#333;font-size:15px;">
+                    Your job order <strong>{self.name}</strong> has been completed
+                    and is ready for your review and signature.
+                </p>
+                <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+                    <tr>
+                        <td style="padding:8px 12px;background:#f5f5f5;font-weight:bold;width:40%;border:1px solid #ddd;">Job Order</td>
+                        <td style="padding:8px 12px;border:1px solid #ddd;">{self.name}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px 12px;background:#f5f5f5;font-weight:bold;border:1px solid #ddd;">Asset</td>
+                        <td style="padding:8px 12px;border:1px solid #ddd;">{asset_name}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px 12px;background:#f5f5f5;font-weight:bold;border:1px solid #ddd;">Scheduled Date</td>
+                        <td style="padding:8px 12px;border:1px solid #ddd;">{scheduled}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px 12px;background:#f5f5f5;font-weight:bold;border:1px solid #ddd;">Maintenance Team</td>
+                        <td style="padding:8px 12px;border:1px solid #ddd;">{team}</td>
+                    </tr>
+                </table>
+                <p style="color:#333;font-size:15px;">
+                    Please click the button below to review the work performed and sign off:
+                </p>
+                <div style="text-align:center;margin:28px 0;">
+                    <a href="{portal_url}"
+                       style="background-color:#1a1a2e;color:white;padding:12px 28px;
+                              border-radius:4px;text-decoration:none;font-size:15px;font-weight:bold;">
+                        Review &amp; Sign Job Order
+                    </a>
+                </div>
+                <p style="color:#888;font-size:13px;text-align:center;">
+                    This link is unique to you. Please do not share it.
+                </p>
+            </div>
+            <div style="background-color:#f5f5f5;padding:14px 32px;text-align:center;">
+                <p style="color:#aaa;font-size:12px;margin:0;">
+                    Automated notification — Asset Management System.
+                </p>
+            </div>
+        </div>"""
+
+        self.env["mail.mail"].sudo().create({
+            "subject": f"Job Order {self.name} — Your Signature Required",
+            "body_html": body_html,
+            "email_to": customer.email,
+            "author_id": self.env.user.partner_id.id,
+            "auto_delete": False,
+            "state": "outgoing",
+        }).send(raise_exception=False)
+
+        self.write({
+            "signature_state": "sent",
+            "signature_sent_on": fields.Datetime.now(),
+        })
+        self.message_post(
+            body=_(
+                "Signature request sent to <b>%(name)s</b> (%(email)s). "
+                "Portal link: <a href='%(url)s'>%(url)s</a>",
+                name=customer_name,
+                email=customer.email,
+                url=portal_url,
+            ),
+            subtype_xmlid="mail.mt_note",
+        )
+
+    def action_sign(self, signature, signed_by, ip_address=None):
+        self.ensure_one()
+        # Strip data URI prefix if present
+        if signature and signature.startswith("data:image"):
+            signature = signature.split(",", 1)[1]
+        import base64
+        self.write({
+            "portal_signature": signature,
+            "portal_signed_by": signed_by,
+            "portal_signed_on": fields.Datetime.now(),
+            "portal_signed_ip": ip_address or "",
+            "signature_state": "signed",
+        })
+        self.message_post(
+            body=_(
+                "Job Order signed by <b>%(name)s</b> on %(date)s.",
+                name=signed_by,
+                date=fields.Datetime.now(),
+            )
+        )
 
     def action_print_report(self):
         return self.env.ref(
@@ -254,7 +482,6 @@ class AssetJobOrder(models.Model):
             "end_datetime": fields.Datetime.now(),
         })
 
-        # Invalidate ORM cache and re-fetch from DB to see wizard's writes
         self.env["asset.job.finding.material.line"].invalidate_model(
             ["quantity_used", "approval_state"]
         )
@@ -262,7 +489,6 @@ class AssetJobOrder(models.Model):
             [("job_order_id", "=", self.id)]
         )
 
-        # Non-consumables still collected → flag for return
         non_consumables = material_lines.filtered(
             lambda l: not l.is_consumable and l.approval_state == "collected"
         )
@@ -330,8 +556,6 @@ class AssetJobOrder(models.Model):
                     items=items,
                 )
             )
-
-
 
     def action_view_pending_returns(self):
         self.ensure_one()
@@ -668,20 +892,6 @@ class AssetJobOrder(models.Model):
             "target": "current",
         }
 
-    def action_view_inspection(self):
-        self.ensure_one()
-        if not self.inspection_id:
-            raise UserError(_("No inspection linked to this job order."))
-        return {
-            "name": _("Inspection"),
-            "type": "ir.actions.act_window",
-            "res_model": "asset.inspection",
-            "view_mode": "form",
-            "res_id": self.inspection_id.id,
-            "views": [(False, "form")],
-            "target": "current",
-        }
-
     def action_close(self):
         self.ensure_one()
         if self.state != "approved":
@@ -777,24 +987,11 @@ class AssetJobOrder(models.Model):
         if self.maintenance_team_id:
             team = self.maintenance_team_id
             if team.team_leader_id:
-                leader_emp = self.env["hr.employee"].search(
-                    [("user_id", "=", team.team_leader_id.id)], limit=1
-                )
-                if leader_emp:
-                    employees |= leader_emp
-            for member in team.member_ids:
-                member_emp = self.env["hr.employee"].search(
-                    [("user_id", "=", member.id)], limit=1
-                )
-                if member_emp:
-                    employees |= member_emp
+                employees |= team.team_leader_id  # already hr.employee
+            employees |= team.member_ids
 
         if self.assigned_user_id:
-            assigned_emp = self.env["hr.employee"].search(
-                [("user_id", "=", self.assigned_user_id.id)], limit=1
-            )
-            if assigned_emp:
-                employees |= assigned_emp
+            employees |= self.assigned_user_id
 
         if not employees:
             return
@@ -823,24 +1020,11 @@ class AssetJobOrder(models.Model):
         if self.maintenance_team_id:
             team = self.maintenance_team_id
             if team.team_leader_id:
-                leader_emp = self.env["hr.employee"].search(
-                    [("user_id", "=", team.team_leader_id.id)], limit=1
-                )
-                if leader_emp:
-                    employees |= leader_emp
-            for member in team.member_ids:
-                member_emp = self.env["hr.employee"].search(
-                    [("user_id", "=", member.id)], limit=1
-                )
-                if member_emp:
-                    employees |= member_emp
+                employees |= team.team_leader_id  # already hr.employee
+            employees |= team.member_ids  # already hr.employee
 
         if self.assigned_user_id:
-            assigned_emp = self.env["hr.employee"].search(
-                [("user_id", "=", self.assigned_user_id.id)], limit=1
-            )
-            if assigned_emp:
-                employees |= assigned_emp
+            employees |= self.assigned_user_id  # already hr.employee
 
         if not employees:
             return
@@ -920,13 +1104,7 @@ class AssetJobOrder(models.Model):
         # ── Labour Hours ──────────────────────────────────────────────────────
         job_hours = sum(self.technician_log_ids.mapped("hours"))
 
-        inspection_hours = 0.0
-        if self.bill_inspection and self.inspection_id:
-            labor_lines = getattr(self.inspection_id, "labor_ids", False)
-            if labor_lines:
-                inspection_hours = sum(labor_lines.mapped("hours"))
-
-        total_hours = job_hours + inspection_hours
+        total_hours = job_hours
 
         if total_hours > 0 and self.labour_rate > 0:
             labour_product = self.env["product.product"].search(
@@ -936,8 +1114,6 @@ class AssetJobOrder(models.Model):
             description_parts = []
             if job_hours:
                 description_parts.append("Job Order: %.2f hrs" % job_hours)
-            if inspection_hours:
-                description_parts.append("Inspection: %.2f hrs" % inspection_hours)
 
             invoice_lines.append((0, 0, {
                 "name": "Labour Hours — " + " | ".join(description_parts),
@@ -965,27 +1141,6 @@ class AssetJobOrder(models.Model):
                 "account_id": self._get_income_account(mat.product_id if mat.product_id else False),
             }))
 
-        # ── Inspection Labour & Materials (only when bill_inspection = True) ──
-        if self.bill_inspection and self.inspection_id:
-            inspection_materials = getattr(self.inspection_id, "material_ids", False)
-            if inspection_materials:
-                for mat in inspection_materials.filtered(
-                        lambda l: getattr(l, "is_consumable", True)
-                                  and l.state in ("consumed", "collected")
-                                  and getattr(l, "qty_consumed", 0) > 0
-                ):
-                    invoice_lines.append((0, 0, {
-                        "name": "[Inspection] %s" % (
-                            mat.product_id.name if mat.product_id else "Material"
-                        ),
-                        "product_id": mat.product_id.id if mat.product_id else False,
-                        "quantity": mat.qty_consumed,
-                        "price_unit": mat.product_id.standard_price if mat.product_id else 0.0,
-                        "account_id": self._get_income_account(
-                            mat.product_id if mat.product_id else False
-                        ),
-                    }))
-
         # ── Additional Services ───────────────────────────────────────────────
         for svc in self.additional_service_ids:
             invoice_lines.append((0, 0, {
@@ -1006,9 +1161,7 @@ class AssetJobOrder(models.Model):
                     "• Labour Rate is 0 (set it in the Billing group)<br/>"
                     "• No materials marked as consumed (Qty Used > 0)<br/>"
                     "• No additional services added<br/>"
-                    "• 'Also Bill from Inspection' is off — enable it to include "
-                    "inspection labour and materials<br/>"
-                    "Fix the above and click <b>Create Invoice</b> again."
+
                 )
             )
             _logger.warning(
@@ -1086,6 +1239,69 @@ class AssetJobOrder(models.Model):
             "views": [(False, "form")],
             "target": "current",
         }
+
+    @api.model
+    def cron_auto_close_unsigned_jobs(self):
+        """
+        Runs daily. Auto-closes job orders where:
+        - signature_state == 'sent' (email was sent but customer hasn't signed)
+        - signature_sent_on is set and is more than 5 days ago
+        Sets job order to 'closed' and linked helpdesk ticket to its closed/solved stage.
+        """
+        cutoff = fields.Datetime.now() - timedelta(days=5)
+        jobs = self.search([
+            ("signature_state", "=", "sent"),
+            ("signature_sent_on", "<=", cutoff),
+            ("state", "not in", ["closed", "rejected"]),
+        ])
+
+        for job in jobs:
+            job.write({
+                "state": "closed",
+                "closed_date": fields.Datetime.now(),
+                "closed_by_name": "Auto-closed (no signature after 5 days)",
+            })
+            job.message_post(
+                body=_(
+                    "Job order auto-closed: customer did not sign within 5 days of "
+                    "signature request sent on <b>%s</b>."
+                ) % job.signature_sent_on.strftime("%d %b %Y"),
+                subtype_xmlid="mail.mt_note",
+            )
+
+            # Close the linked maintenance task
+            task = job.maintenance_task_id
+            if task and task.state not in ("done", "cancel"):
+                task.write({
+                    "state": "done",
+                    "done_date": fields.Datetime.now(),
+                })
+
+            # Close the linked helpdesk ticket
+            ticket = task.helpdesk_ticket_id if task else False
+            if ticket:
+                closed_stage = self.env["helpdesk.stage"].search(
+                    ["|",
+                     ("name", "ilike", "solved"),
+                     ("name", "ilike", "closed")],
+                    order="sequence desc",
+                    limit=1,
+                )
+                if not closed_stage and ticket.team_id:
+                    closed_stage = ticket.team_id.close_stage_id
+                if closed_stage:
+                    ticket.write({"stage_id": closed_stage.id})
+                ticket.message_post(
+                    body=_(
+                        "Ticket auto-closed: linked job order <b>%s</b> was closed "
+                        "automatically after customer did not sign within 5 days."
+                    ) % job.name,
+                    subtype_xmlid="mail.mt_note",
+                )
+
+        _logger.info(
+            "cron_auto_close_unsigned_jobs: auto-closed %d job order(s).", len(jobs)
+        )
 
 
 class AssetJobFindingLine(models.Model):
@@ -1488,52 +1704,99 @@ class AssetJobMaterialLine(models.Model):
 
     def _create_stock_reservation(self):
         self.ensure_one()
-        warehouse = self.env["stock.warehouse"].search([], limit=1)
-        src_location = (
-            warehouse.lot_stock_id if warehouse
-            else self.env.ref("stock.stock_location_stock")
+        maintenance_company = self._get_maintenance_company()
+        env = self.env(context=dict(
+            self.env.context,
+            allowed_company_ids=[maintenance_company.id],
+            force_company=maintenance_company.id,
+        ))
+
+        warehouse = env["stock.warehouse"].search(
+            [("company_id", "=", maintenance_company.id)], limit=1
         )
+        if not warehouse:
+            raise UserError(_(
+                "No warehouse found for maintenance company '%s'. "
+                "Please configure a warehouse for that company."
+            ) % maintenance_company.name)
+
+        src_location = warehouse.lot_stock_id
         dest_location = self._get_or_create_job_order_location()
-        picking_type = self.env["stock.picking.type"].search([
+
+        picking_type = env["stock.picking.type"].search([
             ("code", "=", "internal"),
             ("warehouse_id", "=", warehouse.id),
+            ("company_id", "=", maintenance_company.id),
         ], limit=1)
         if not picking_type:
             raise UserError(_(
-                "No internal picking type found for warehouse %s. "
-                "Please configure stock operations."
-            ) % warehouse.name)
-        picking = self.env["stock.picking"].sudo().create({
+                "No internal picking type found for warehouse '%s' "
+                "(company: %s). Please configure stock operations."
+            ) % (warehouse.name, maintenance_company.name))
+
+        picking = env["stock.picking"].sudo().create({
             "picking_type_id": picking_type.id,
             "location_id": src_location.id,
             "location_dest_id": dest_location.id,
             "origin": f"JO-{self.job_order_id.name}",
+            "company_id": maintenance_company.id,
             "move_ids": [(0, 0, {
                 "product_id": self.product_id.id,
                 "product_uom": self.uom_id.id,
                 "product_uom_qty": self.quantity_requested,
                 "location_id": src_location.id,
                 "location_dest_id": dest_location.id,
+                "company_id": maintenance_company.id,
             })],
         })
         picking.action_confirm()
         picking.action_assign()
         return picking
 
+    def _get_maintenance_company(self):
+        """
+        Returns the company that owns the maintenance/stock operations.
+        Looks for a company with 'maintenance' in the name, falling back
+        to the job order's own company, then env.company.
+        You can also hardcode by setting the parameter
+        'asset_management.maintenance_company_id' in System Parameters.
+        """
+        # Check system parameter first (most reliable)
+        param = self.env["ir.config_parameter"].sudo().get_param(
+            "asset_management.maintenance_company_id"
+        )
+        if param:
+            company = self.env["res.company"].sudo().browse(int(param))
+            if company.exists():
+                return company
+
+        # Fall back: company linked to the maintenance task/job order record
+        if hasattr(self, "job_order_id") and self.job_order_id.company_id:
+            return self.job_order_id.company_id
+        if hasattr(self, "company_id") and self.company_id:
+            return self.company_id
+
+        # Last resort: current company
+        return self.env.company
+
     def _get_or_create_job_order_location(self):
-        location = self.env["stock.location"].search([
+        maintenance_company = self._get_maintenance_company()
+        location = self.env["stock.location"].sudo().search([
             ("name", "=", "Job Order Reserved"),
             ("usage", "=", "internal"),
+            ("company_id", "=", maintenance_company.id),
         ], limit=1)
+
         if not location:
-            parent = self.env.ref(
-                "stock.stock_location_locations", raise_if_not_found=False
-            )
+            parent = self.env["stock.location"].sudo().search([
+                ("usage", "=", "view"),
+                ("company_id", "=", maintenance_company.id),
+            ], limit=1)
             location = self.env["stock.location"].sudo().create({
                 "name": "Job Order Reserved",
                 "usage": "internal",
                 "location_id": parent.id if parent else False,
-                "active": True,
+                "company_id": maintenance_company.id,
             })
         return location
 

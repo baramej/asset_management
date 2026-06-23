@@ -250,17 +250,8 @@ class AssetInspection(models.Model):
         if self.maintenance_team_id:
             team = self.maintenance_team_id
             if team.team_leader_id:
-                leader_emp = self.env["hr.employee"].search(
-                    [("user_id", "=", team.team_leader_id.id)], limit=1
-                )
-                if leader_emp:
-                    employees |= leader_emp
-            for member in team.member_ids:
-                member_emp = self.env["hr.employee"].search(
-                    [("user_id", "=", member.id)], limit=1
-                )
-                if member_emp:
-                    employees |= member_emp
+                employees |= team.team_leader_id
+            employees |= team.member_ids
 
         employees |= self.employee_ids
 
@@ -796,17 +787,8 @@ class AssetInspection(models.Model):
         if self.maintenance_team_id:
             team = self.maintenance_team_id
             if team.team_leader_id:
-                leader_employee = self.env["hr.employee"].search(
-                    [("user_id", "=", team.team_leader_id.id)], limit=1
-                )
-                if leader_employee:
-                    employees |= leader_employee
-            for member in team.member_ids:
-                member_employee = self.env["hr.employee"].search(
-                    [("user_id", "=", member.id)], limit=1
-                )
-                if member_employee:
-                    employees |= member_employee
+                employees |= team.team_leader_id
+            employees |= team.member_ids
 
         if self.employee_ids:
             employees |= self.employee_ids
@@ -845,8 +827,8 @@ class AssetInspection(models.Model):
             recipients[u.email] = u.name
         if self.maintenance_team_id and self.maintenance_team_id.team_leader_id:
             leader = self.maintenance_team_id.team_leader_id
-            if leader.email:
-                recipients[leader.email] = leader.name
+            if leader.work_email:
+                recipients[leader.work_email] = leader.name
 
         if not recipients:
             return

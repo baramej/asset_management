@@ -36,22 +36,6 @@ class AssetTeamScheduleViewerWizard(models.TransientModel):
     def _build_schedule_lines(self, team):
         lines = []
 
-        inspections = self.env["asset.inspection"].search([
-            ("maintenance_team_id", "=", team.id),
-            ("state", "in", ["scheduled", "request_material", "material_collected", "in_progress"]),
-            ("scheduled_date", "!=", False),
-        ], order="scheduled_date asc")
-
-        for rec in inspections:
-            lines.append((0, 0, {
-                "work_type": "inspection",
-                "reference": rec.name,
-                "asset_name": rec.asset_id.name if rec.asset_id else "-",
-                "scheduled_date": rec.scheduled_date,
-                "state": dict(rec._fields["state"].selection).get(rec.state, rec.state),
-                "color_state": rec.state,
-            }))
-
         tasks = self.env["asset.maintenance.task"].search([
             ("maintenance_team_id", "=", team.id),
             ("state", "in", ["assigned", "in_progress"]),
@@ -99,7 +83,6 @@ class AssetTeamScheduleViewerLine(models.TransientModel):
         ondelete="cascade",
     )
     work_type = fields.Selection([
-        ("inspection", "Inspection"),
         ("preventive", "Preventive Maintenance"),
         ("corrective", "Corrective Maintenance"),
         ("job_order", "Job Order"),
