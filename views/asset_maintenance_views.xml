@@ -293,6 +293,28 @@
                                        placeholder="Internal supervisor notes..."/>
                             </group>
                         </page>
+                        <!-- ── PM Service Checklist (for preventive tasks with a service type) ── -->
+                        <page string="Checklist" name="checklist"
+                              invisible="maintenance_type == 'corrective'">
+                            <group>
+                                <field name="checklist_progress"
+                                       widget="progressbar"
+                                       options="{'editable': false}"
+                                       invisible="not checklist_line_ids"/>
+                            </group>
+                            <field name="checklist_line_ids">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="description"/>
+                                    <field name="is_mandatory" widget="boolean_toggle"/>
+                                    <field name="is_done" widget="boolean_toggle"/>
+                                    <field name="notes" optional="show"/>
+                                    <field name="done_by_id" readonly="1" optional="show"/>
+                                    <field name="done_date" readonly="1" optional="show"/>
+                                </list>
+                            </field>
+                        </page>
+
 
                         <!-- ── Flat Checklist (only for flat inspection job type) ── -->
                         <page string="Flat Checklist" name="flat_checklist"
@@ -330,10 +352,7 @@
                                     <field name="section" optional="show"/>
                                     <field name="description" readonly="1"/>
                                     <field name="expected_qty" readonly="1" optional="show"/>
-                                    <field name="status" widget="badge"
-                                           decoration-success="status == 'ok'"
-                                           decoration-danger="status == 'missing' or status == 'damaged'"
-                                           decoration-secondary="status == 'na'"/>
+                                    <field name="status" widget="selection"/>
                                     <field name="remarks"/>
                                     <field name="is_meter_reading" readonly="1" optional="show"/>
                                     <field name="meter_value"
@@ -909,7 +928,7 @@
                 <field name="active" column_invisible="1"/>
                 <field name="sequence" widget="handle"/>
                 <field name="name"/>
-                <field name="maintenance_type" />
+                <field name="maintenance_type"/>
                 <field name="job_type" widget="badge"/>
                 <field name="asset_category" optional="show"/>
                 <field name="asset_location_id" optional="show"/>
