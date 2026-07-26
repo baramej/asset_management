@@ -401,3 +401,59 @@ class AssetJobOrderFlatExtension(models.Model):
             self.flat_checklist_line_ids = new_lines
 
         return True
+
+
+class AssetJobOrderPmChecklistExtension(models.Model):
+    _inherit = "asset.job.order"
+
+    pm_checklist_line_ids = fields.One2many(
+        "asset.task.checklist.line",
+        "job_order_id",        # ← need to add this field to the line model
+        string="PM Checklist",
+    )
+    pm_checklist_progress = fields.Float(
+        compute="_compute_pm_checklist_progress",
+        string="PM Checklist Progress (%)",
+        store=False,
+    )
+    pm_checklist_complete = fields.Boolean(
+        compute="_compute_pm_checklist_progress",
+        store=False,
+    )
+
+    @api.depends("pm_checklist_line_ids.is_done", "pm_checklist_line_ids.is_mandatory")
+    def _compute_pm_checklist_progress(self):
+        for rec in self:
+            lines = rec.pm_checklist_line_ids
+            total = len(lines)
+            done = len(lines.filtered("is_done"))
+            if total:
+                rec.pm_checklist_progress = (done / total) * 100
+                rec.pm_checklist_complete = not bool(
+                    lines.filtered(lambda l: l.is_mandatory and not l.is_done)
+                )
+            else:
+                rec.pm_checklist_progress = 100.0
+                rec.pm_checklist_complete = True
+
+    def action_copy_pm_checklist_from_task(self):
+        """Copy PM checklist lines from the maintenance task into this job order."""
+        self.ensure_one()
+        task = self.maintenance_task_id
+        if not task or not task.checklist_line_ids:
+            return True
+        self.pm_checklist_line_ids.unlink()
+        new_lines = []
+        for line in task.checklist_line_ids:
+            new_lines.append((0, 0, {
+                "sequence": line.sequence,
+                "description": line.description,
+                "is_mandatory": line.is_mandatory,
+                "notes": line.notes,
+                "is_done": line.is_done,
+                "done_by_id": line.done_by_id.id if line.done_by_id else False,
+                "done_date": line.done_date,
+                "job_order_id": self.id,
+            }))
+        self.pm_checklist_line_ids = new_lines
+        return True
