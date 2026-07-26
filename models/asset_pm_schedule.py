@@ -113,8 +113,11 @@ class AssetTaskChecklistLine(models.Model):
     _description = "Task Checklist Line"
     _order = "sequence, id"
 
-    task_id      = fields.Many2one(
-        "asset.maintenance.task", required=True, ondelete="cascade"
+    task_id = fields.Many2one(
+        "asset.maintenance.task",
+        required=False,  # ← was True
+        ondelete="cascade",
+        index=True,
     )
     sequence     = fields.Integer(default=10)
     description  = fields.Char(string="Task / Check Item", required=True)
@@ -123,6 +126,11 @@ class AssetTaskChecklistLine(models.Model):
     notes        = fields.Char(string="Notes / Remarks")
     done_by_id   = fields.Many2one("res.users", string="Done By", readonly=True)
     done_date    = fields.Datetime(string="Done At", readonly=True)
+    job_order_id = fields.Many2one(
+        "asset.job.order",
+        ondelete="cascade",
+        index=True,
+    )
 
     def action_mark_done(self):
         for rec in self:
