@@ -14,12 +14,24 @@
                         class="oe_stat_button"
                         icon="fa-wrench"
                         invisible="maintenance_task_id == False"
-                groups="asset_management.group_asset_inspector,asset_management.group_asset_manager">
+                        groups="asset_management.group_asset_inspector,asset_management.group_asset_manager">
                     <div class="o_field_widget o_stat_info">
                         <span class="o_stat_value">
                             <field name="maintenance_task_count"/>
                         </span>
                         <span class="o_stat_text">Maintenance</span>
+                    </div>
+                </button>
+                <button name="action_view_portal_data"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="fa-list-alt"
+                        invisible="portal_data_count == 0">
+                    <div class="o_stat_info">
+                        <span class="o_stat_value">
+                            <field name="portal_data_count"/>
+                        </span>
+                        <span class="o_stat_text">Portal Data</span>
                     </div>
                 </button>
 
@@ -35,7 +47,7 @@
                         class="btn-primary"
                         invisible="maintenance_task_id != False"
                         groups="asset_management.group_asset_ticket_manager,asset_management.group_asset_manager"/>
-                />
+
 
             </xpath>
 
