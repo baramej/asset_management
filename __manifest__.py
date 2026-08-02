@@ -1,6 +1,6 @@
 {
     "name": "Asset Management",
-    "version": "19.0.1.1",
+    "version": "1.0",
     "summary": "Comprehensive Asset & CAFM Management",
     "description": """
      Standalone Asset Management app
@@ -50,6 +50,8 @@
         'report/report_job_order.xml',
         "views/asset_menu.xml",
         "views/flat_checklist_views.xml",
+        'data/helpdesk_job_categories.xml',
+        'views/portal_ticket_form.xml',
         "data/asset_pm_cron.xml",
         "data/email_template_material_request.xml",
         "data/email_template_job_order.xml",
