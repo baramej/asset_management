@@ -410,12 +410,12 @@
             <p>Inspections with equipment awaiting return to store will appear here.</p>
         </field>
     </record>
-    <menuitem
-            id="menu_helpdesk_inspection_pending_returns"
-            name="Pending Returns"
-            parent="stock.menu_stock_root"
-            action="action_asset_inspection_pending_returns"
-            sequence="21"/>
+<!--    <menuitem-->
+<!--            id="menu_helpdesk_inspection_pending_returns"-->
+<!--            name="Pending Returns"-->
+<!--            parent="stock.menu_stock_root"-->
+<!--            action="action_asset_inspection_pending_returns"-->
+<!--            sequence="21"/>-->
 
 
 </odoo>
