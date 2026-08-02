@@ -1,0 +1,504 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <template id="portal_helpdesk_ticket_form" name="New Helpdesk Ticket">
+        <t t-call="portal.portal_layout">
+
+            <div class="container mt-4 mb-5">
+                <div class="row justify-content-center">
+                    <div class="col-lg-9">
+
+                        <!-- Page heading -->
+                        <div class="d-flex align-items-center mb-4">
+                            <a href="/my/home" class="text-muted me-2">
+                                <i class="fa fa-home"/>
+                            </a>
+                            <span class="text-muted me-2">/</span>
+                            <span class="fw-bold">Submit a Service Request</span>
+                        </div>
+
+                        <div class="card shadow-sm border-0">
+                            <div class="card-header py-3"
+                                 style="background: linear-gradient(135deg,#1a1a2e,#16213e); color:#fff;">
+                                <div class="d-flex align-items-center">
+                                    <div class="rounded-circle d-flex align-items-center justify-content-center me-3"
+                                         style="width:40px;height:40px;background:rgba(255,255,255,0.15)">
+                                        <i class="fa fa-wrench fa-lg"/>
+                                    </div>
+                                    <div>
+                                        <h5 class="mb-0">Submit a Service Request</h5>
+                                        <small style="opacity:0.75">Fill in the details below and your manager will be
+                                            notified for approval
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card-body p-4">
+
+                                <!-- Errors -->
+                                <t t-if="error_message">
+                                    <div class="alert alert-danger d-flex align-items-start" role="alert">
+                                        <i class="fa fa-exclamation-triangle me-2 mt-1"/>
+                                        <ul class="mb-0 ps-2">
+                                            <li t-foreach="error_message" t-as="msg">
+                                                <t t-out="msg"/>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </t>
+
+                                <form action="/my/tickets/new" method="post" id="portal_ticket_form">
+                                    <input type="hidden" name="csrf_token"
+                                           t-att-value="request.csrf_token()"/>
+
+                                    <!-- ── SECTION: Request Details ── -->
+                                    <div class="border-bottom pb-2 mb-3">
+                                        <h6 class="text-uppercase text-muted fw-bold"
+                                            style="font-size:11px;letter-spacing:1px">
+                                            <i class="fa fa-info-circle me-1"/>Request Details
+                                        </h6>
+                                    </div>
+
+                                    <!-- Subject + Priority on same row -->
+                                    <div class="row mb-3">
+                                        <div class="col-md-9 mb-3 mb-md-0">
+                                            <label class="form-label fw-bold" for="name">
+                                                Subject
+                                                <span class="text-danger">*</span>
+                                            </label>
+                                            <input type="text" name="name" id="name"
+                                                   t-att-class="'form-control is-invalid' if error.get('name') else 'form-control'"
+                                                   t-att-value="post.get('name', '') if post else ''"
+                                                   placeholder="Brief description of the issue"/>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label fw-bold">Priority</label>
+                                            <div class="d-flex align-items-center" style="height:38px">
+                                                <div class="portal-priority-stars d-flex gap-1">
+                                                    <input type="hidden" name="priority" id="priority_value"
+                                                           t-att-value="post.get('priority','0') if post else '0'"/>
+                                                    <i class="fa fa-star portal-star fa-lg"
+                                                       data-val="1" style="cursor:pointer;color:#dee2e6"/>
+                                                    <i class="fa fa-star portal-star fa-lg"
+                                                       data-val="2" style="cursor:pointer;color:#dee2e6"/>
+                                                    <i class="fa fa-star portal-star fa-lg"
+                                                       data-val="3" style="cursor:pointer;color:#dee2e6"/>
+                                                </div>
+                                            </div>
+                                            <small class="text-muted" id="priority_label">Normal</small>
+                                        </div>
+                                    </div>
+
+                                    <!-- Job Category -->
+                                    <div class="row mb-3">
+                                        <div class="col-md-6 mb-3 mb-md-0">
+                                            <label class="form-label fw-bold" for="job_category_id">
+                                                Job Category
+                                                <span class="text-danger">*</span>
+                                            </label>
+                                            <select name="job_category_id" id="job_category_id"
+                                                    t-att-class="'form-select is-invalid' if error.get('job_category_id') else 'form-select'">
+                                                <option value="">— Select Category —</option>
+                                                <t t-foreach="job_categories" t-as="cat">
+                                                    <option t-att-value="cat.id"
+                                                            t-att-selected="str(post.get('job_category_id','')) == str(cat.id) if post else ''">
+                                                        <t t-out="cat.name"/>
+                                                    </option>
+                                                </t>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <!-- Description -->
+                                    <div class="row mb-4">
+                                        <div class="col-12">
+                                            <label class="form-label fw-bold" for="description">
+                                                Description
+                                                <span class="text-danger">*</span>
+                                            </label>
+                                            <textarea name="description" id="description" rows="4"
+                                                      t-att-class="'form-control is-invalid' if error.get('description') else 'form-control'"
+                                                      placeholder="Describe the issue — when it started, how often it occurs, any error messages, etc.">
+                                                <t t-out="post.get('description','') if post else ''"/>
+                                            </textarea>
+                                        </div>
+                                    </div>
+
+                                    <!-- ── SECTION: Location ── -->
+                                    <div class="border-bottom pb-2 mb-3">
+                                        <h6 class="text-uppercase text-muted fw-bold"
+                                            style="font-size:11px;letter-spacing:1px">
+                                            <i class="fa fa-map-marker me-1"/>Location
+                                        </h6>
+                                    </div>
+
+                                    <div class="row mb-3">
+                                        <div class="col-md-4 mb-3 mb-md-0">
+                                            <label class="form-label fw-bold" for="location_id">Main Location</label>
+                                            <select name="location_id" id="location_id"
+                                                    class="form-select"
+                                                    onchange="onLocationChange(this.value)">
+                                                <option value="">— Select Location —</option>
+                                                <t t-foreach="locations" t-as="loc">
+                                                    <option t-att-value="loc.id"
+                                                            t-att-selected="str(post.get('location_id','')) == str(loc.id) if post else ''">
+                                                        <t t-out="loc.name"/>
+                                                    </option>
+                                                </t>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4 mb-3 mb-md-0">
+                                            <label class="form-label fw-bold" for="sublocation_id">Sub-location</label>
+                                            <select name="sublocation_id" id="sublocation_id" class="form-select">
+                                                <option value="">— Select Sub-location —</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label fw-bold" for="building">Unit / Room</label>
+                                            <input type="text" name="building" id="building"
+                                                   class="form-control"
+                                                   t-att-value="post.get('building', '') if post else ''"
+                                                   placeholder="e.g. Room 101, Villa 5"/>
+                                        </div>
+                                    </div>
+
+                                    <!-- Asset location auto-fill banner -->
+                                    <div class="row mb-3" id="asset_location_row" style="display:none">
+                                        <div class="col-12">
+                                            <div class="alert alert-info py-2 mb-0 d-flex align-items-center">
+                                                <i class="fa fa-map-marker me-2"/>
+                                                <span>
+                                                    <strong>Asset Location:</strong>
+                                                    <span id="asset_location_display" class="ms-1">—</span>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- ── SECTION: Equipment ── -->
+                                    <div class="border-bottom pb-2 mb-3">
+                                        <h6 class="text-uppercase text-muted fw-bold"
+                                            style="font-size:11px;letter-spacing:1px">
+                                            <i class="fa fa-cog me-1"/>Equipment
+                                        </h6>
+                                    </div>
+
+                                    <div class="row mb-4">
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-bold" for="asset_id">Equipment / Asset</label>
+                                            <select name="asset_id" id="asset_id"
+                                                    class="form-select"
+                                                    onchange="onAssetChange(this.value)">
+                                                <option value="">— Select Equipment —</option>
+                                                <t t-foreach="assets" t-as="asset">
+                                                    <option t-att-value="asset.id"
+                                                            t-att-data-location-id="asset.location_id.id or ''"
+                                                            t-att-data-location-name="asset.location_id.name or ''"
+                                                            t-att-selected="str(post.get('asset_id','')) == str(asset.id) if post else ''">
+                                                        <t t-out="asset.name"/>
+                                                    </option>
+                                                </t>
+                                            </select>
+                                            <div class="form-text text-muted">
+                                                <i class="fa fa-info-circle me-1"/>
+                                                Selecting an asset will auto-fill the location above.
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- ── SECTION: Requester Info ── -->
+                                    <div class="border-bottom pb-2 mb-3">
+                                        <h6 class="text-uppercase text-muted fw-bold"
+                                            style="font-size:11px;letter-spacing:1px">
+                                            <i class="fa fa-building me-1"/>Organisation
+                                        </h6>
+                                    </div>
+
+                                    <div class="row mb-3">
+                                        <div class="col-md-6 mb-3 mb-md-0">
+                                            <label class="form-label fw-bold" for="company_id">Company</label>
+                                            <select name="company_id" id="company_id"
+                                                    class="form-select"
+                                                    onchange="onCompanyChange(this.value)">
+                                                <option value="">— Select Company —</option>
+                                                <t t-foreach="companies" t-as="company">
+                                                    <option t-att-value="company.id"
+                                                            t-att-selected="str(post.get('company_id','')) == str(company.id) if post else str(user_company_id) == str(company.id)">
+                                                        <t t-out="company.name"/>
+                                                    </option>
+                                                </t>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-bold" for="department_id">Department</label>
+                                            <select name="department_id" id="department_id" class="form-select">
+                                                <option value="">— Select Department —</option>
+                                                <t t-foreach="departments" t-as="dept">
+                                                    <option t-att-value="dept.id"
+                                                            t-att-selected="str(post.get('department_id','')) == str(dept.id) if post else ''">
+                                                        <t t-out="dept.name"/>
+                                                    </option>
+                                                </t>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <!-- Remarks -->
+                                    <div class="row mb-4">
+                                        <div class="col-12">
+                                            <label class="form-label fw-bold" for="remarks">Remarks</label>
+                                            <textarea name="remarks" id="remarks" rows="2"
+                                                      class="form-control"
+                                                      placeholder="Any additional remarks or special instructions...">
+                                                <t t-out="post.get('remarks','') if post else ''"/>
+                                            </textarea>
+                                        </div>
+                                    </div>
+
+                                    <!-- ── Approver card ── -->
+                                    <div class="alert py-3 mb-4"
+                                         style="background:#f8f9ff;border:1px solid #e0e4ff;border-radius:8px">
+                                        <div class="d-flex align-items-center">
+                                            <div class="rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0"
+                                                 style="width:36px;height:36px;background:#e0e4ff">
+                                                <i class="fa fa-user-tie text-primary"/>
+                                            </div>
+                                            <div>
+                                                <div class="fw-bold text-dark" style="font-size:13px">Approval Route
+                                                </div>
+                                                <t t-if="manager">
+                                                    <span class="text-muted" style="font-size:13px">
+                                                        This request will be sent to
+                                                        <strong>
+                                                            <t t-out="manager.name"/>
+                                                        </strong>
+                                                        (<t t-out="manager.email"/>) for approval.
+                                                    </span>
+                                                </t>
+                                                <t t-else="">
+                                                    <span class="text-muted" style="font-size:13px">
+                                                        No manager found — this ticket will go directly to the helpdesk
+                                                        team.
+                                                    </span>
+                                                </t>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Submit -->
+                                    <div class="d-flex gap-2 justify-content-end">
+                                        <a href="/my/home" class="btn btn-outline-secondary px-4">
+                                            <i class="fa fa-times me-1"/>Cancel
+                                        </a>
+                                        <button type="submit" class="btn btn-primary px-4">
+                                            <i class="fa fa-paper-plane me-1"/>Submit Request
+                                        </button>
+                                    </div>
+
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <script type="text/javascript">
+                //<![CDATA[
+(function () {
+    // ── Priority stars ───────────────────────────────────────────────────
+    var PRIORITY_LABELS = {0: "Normal", 1: "Low", 2: "High", 3: "Very High"};
+    var currentPriority = parseInt(document.getElementById("priority_value").value) || 0;
+
+    function renderStars(val) {
+        document.querySelectorAll(".portal-star").forEach(function (s) {
+            var sv = parseInt(s.dataset.val);
+            s.style.color = sv <= val ? "#f6a623" : "#dee2e6";
+        });
+        document.getElementById("priority_label").textContent = PRIORITY_LABELS[val] || "Normal";
+        document.getElementById("priority_value").value = val;
+        currentPriority = val;
+    }
+
+    document.querySelectorAll(".portal-star").forEach(function (star) {
+        star.addEventListener("click", function () {
+            var val = parseInt(this.dataset.val);
+            // Click same star again = reset to 0
+            renderStars(val === currentPriority ? 0 : val);
+        });
+        star.addEventListener("mouseenter", function () {
+            var val = parseInt(this.dataset.val);
+            document.querySelectorAll(".portal-star").forEach(function (s) {
+                s.style.color = parseInt(s.dataset.val) <= val ? "#f6a623" : "#dee2e6";
+            });
+        });
+        star.addEventListener("mouseleave", function () {
+            renderStars(currentPriority);
+        });
+    });
+
+    // Init stars on page load (handles validation re-render)
+    renderStars(currentPriority);
+
+    // ── JSON-RPC helper ──────────────────────────────────────────────────
+    function callJSON(url, params, cb) {
+        fetch(url, {
+            method: "POST",
+            headers: {"Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest"},
+            body: JSON.stringify({jsonrpc: "2.0", method: "call", id: 1, params: params}),
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) { cb(data.result); })
+        .catch(function (e) { console.error(url, e); });
+    }
+
+    // ── Company change ───────────────────────────────────────────────────
+    function onCompanyChange(companyId) {
+        // Departments
+        callJSON("/my/tickets/departments_by_company",
+            {company_id: companyId ? parseInt(companyId) : null},
+            function (depts) {
+                var sel = document.getElementById("department_id");
+                sel.innerHTML = '<option value="">— Select Department —</option>';
+                (depts || []).forEach(function (d) {
+                    sel.innerHTML += '<option value="' + d.id + '">' + d.name + '</option>';
+                });
+            }
+        );
+        // Assets
+        callJSON("/my/tickets/assets_by_company",
+            {company_id: companyId ? parseInt(companyId) : null},
+            function (assets) {
+                var sel = document.getElementById("asset_id");
+                sel.innerHTML = '<option value="">— Select Equipment —</option>';
+                (assets || []).forEach(function (a) {
+                    var opt = document.createElement("option");
+                    opt.value = a.id;
+                    opt.text = a.name;
+                    opt.dataset.locationId   = a.location_id   || "";
+                    opt.dataset.locationName = a.location_name || "";
+                    opt.dataset.locationFull = a.location_full || "";
+                    sel.appendChild(opt);
+                });
+                clearAssetLocation();
+            }
+        );
+    }
+    window.onCompanyChange = onCompanyChange;
+
+    // ── Location change — load sub-locations ─────────────────────────────
+    function onLocationChange(locId) {
+        var sel = document.getElementById("sublocation_id");
+        sel.innerHTML = '<option value="">— Select Sub-location —</option>';
+        if (!locId) return;
+        callJSON("/my/tickets/sublocations", {parent_id: parseInt(locId)}, function (locs) {
+            (locs || []).forEach(function (l) {
+                sel.innerHTML += '<option value="' + l.id + '">' + l.name + '</option>';
+            });
+        });
+    }
+    window.onLocationChange = onLocationChange;
+
+    // ── Asset change — auto-fill location ────────────────────────────────
+    function onAssetChange(assetId) {
+        if (!assetId) { clearAssetLocation(); return; }
+        var sel  = document.getElementById("asset_id");
+        var opt  = sel.options[sel.selectedIndex];
+        var locId   = opt.dataset.locationId   || "";
+        var locName = opt.dataset.locationName || opt.dataset.locationFull || "";
+
+        if (locName) {
+            document.getElementById("asset_location_display").textContent = locName;
+            document.getElementById("asset_location_row").style.display = "";
+        } else {
+            clearAssetLocation();
+        }
+
+        // Try to match location dropdown
+        if (locId) {
+            var locSel = document.getElementById("location_id");
+            var matched = false;
+            for (var i = 0; i < locSel.options.length; i++) {
+                if (locSel.options[i].value == locId) {
+                    locSel.selectedIndex = i;
+                    onLocationChange(locId);
+                    matched = true;
+                    break;
+                }
+            }
+            if (!matched) {
+                // Location might be a sub-location — find its parent via AJAX
+                // For now, fire sublocations load with the locId directly
+                onLocationChange(locId);
+            }
+        }
+    }
+    window.onAssetChange = onAssetChange;
+
+    function clearAssetLocation() {
+        document.getElementById("asset_location_display").textContent = "—";
+        document.getElementById("asset_location_row").style.display = "none";
+    }
+
+    // ── Init on load ─────────────────────────────────────────────────────
+    document.addEventListener("DOMContentLoaded", function () {
+        var compSel = document.getElementById("company_id");
+        if (compSel && compSel.value) onCompanyChange(compSel.value);
+
+        var locSel = document.getElementById("location_id");
+        if (locSel && locSel.value) onLocationChange(locSel.value);
+
+        var assSel = document.getElementById("asset_id");
+        if (assSel && assSel.value) onAssetChange(assSel.value);
+    });
+})();
+//]]>
+            </script>
+        </t>
+    </template>
+
+    <!-- ── Success page ─────────────────────────────────────────────────────── -->
+    <template id="portal_helpdesk_ticket_submitted" name="Ticket Submitted">
+        <t t-call="portal.portal_layout">
+            <div class="container py-5">
+                <div class="row justify-content-center">
+                    <div class="col-lg-6 text-center">
+                        <div class="mb-4">
+                            <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+                                 style="width:80px;height:80px;background:#e6f9f0">
+                                <i class="fa fa-check fa-2x text-success"/>
+                            </div>
+                            <h4 class="fw-bold">Request Submitted Successfully</h4>
+                            <p class="text-muted">
+                                Your service request is now <strong>pending manager approval</strong>.
+                                You will receive an email notification once it has been reviewed.
+                            </p>
+                        </div>
+                        <a href="/my/home" class="btn btn-primary me-2">
+                            <i class="fa fa-home me-1"/>Back to Home
+                        </a>
+                        <a href="/my/tickets/new" class="btn btn-outline-primary">
+                            <i class="fa fa-plus me-1"/>Submit Another
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <!-- ── My Home link ─────────────────────────────────────────────────────── -->
+    <template id="portal_my_home_ticket_link" inherit_id="portal.portal_my_home" priority="20">
+        <xpath expr="//div[hasclass('o_portal_docs')]" position="inside">
+            <div class="o_portal_docs col-lg-3 col-md-4 col-sm-6 col-xs-12">
+                <a href="/my/tickets/new" class="o_portal_doc_item">
+                    <span class="o_portal_doc_icon">
+                        <i class="fa fa-wrench fa-2x text-primary"/>
+                    </span>
+                    <span class="o_portal_doc_name">Submit a Service Request</span>
+                    <span class="o_portal_doc_count"></span>
+                </a>
+            </div>
+        </xpath>
+    </template>
+
+</odoo>
