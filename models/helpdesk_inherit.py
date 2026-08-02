@@ -21,6 +21,32 @@ class HelpdeskTicket(models.Model):
         string="Maintenance Task",
         readonly=True,
     )
+    portal_line_ids = fields.One2many(
+        "helpdesk.portal.ticket.line", "ticket_id",
+        string="Portal Data", readonly=True
+    )
+    portal_data_count = fields.Integer(
+        compute="_compute_portal_data_count"
+    )
+
+    @api.depends("portal_line_ids")
+    def _compute_portal_data_count(self):
+        for rec in self:
+            rec.portal_data_count = len(rec.portal_line_ids)
+
+    def action_view_portal_data(self):
+        self.ensure_one()
+        line = self.portal_line_ids[:1]
+        if not line:
+            return
+        return {
+            "name": _("Portal Submission Data"),
+            "type": "ir.actions.act_window",
+            "res_model": "helpdesk.portal.ticket.line",
+            "view_mode": "form",
+            "res_id": line.id,
+            "target": "new",
+        }
 
     maintenance_task_count = fields.Integer(
         string="Maintenance Tasks",
