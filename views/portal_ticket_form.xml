@@ -36,6 +36,38 @@
 
                             <div class="card-body p-4">
 
+                                <style>
+    .searchable-select { position: relative; }
+    .searchable-select-dropdown {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        z-index: 1000;
+        max-height: 220px;
+        overflow-y: auto;
+        background: #fff;
+        border: 1px solid #ced4da;
+        border-top: none;
+        border-radius: 0 0 .375rem .375rem;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+    }
+    .searchable-select-item {
+        padding: 6px 12px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+    .searchable-select-item:hover,
+    .searchable-select-item.active {
+        background: #f0f4ff;
+    }
+    .searchable-select-empty {
+        padding: 6px 12px;
+        font-size: 13px;
+    }
+</style>
+
                                 <!-- Errors -->
                                 <t t-if="error_message">
                                     <div class="alert alert-danger d-flex align-items-start" role="alert">
@@ -51,6 +83,114 @@
                                 <form action="/my/tickets/new" method="post" id="portal_ticket_form">
                                     <input type="hidden" name="csrf_token"
                                            t-att-value="request.csrf_token()"/>
+
+                                    <!-- ── SECTION: Organisation (locked, auto-filled) ── -->
+                                    <div class="border-bottom pb-2 mb-3">
+                                        <h6 class="text-uppercase text-muted fw-bold"
+                                            style="font-size:11px;letter-spacing:1px">
+                                            <i class="fa fa-building me-1"/>Organisation
+                                        </h6>
+                                    </div>
+
+                                    <div class="row mb-4">
+                                        <div class="col-md-6 mb-3 mb-md-0">
+                                            <label class="form-label fw-bold">Company</label>
+                                            <input type="text" class="form-control" disabled="disabled"
+                                                   t-att-value="user_company.name if user_company else ''"/>
+                                            <!-- Server always recomputes this from the logged-in user; hidden field kept only for UX round-trip -->
+                                            <input type="hidden" name="company_id"
+                                                   t-att-value="user_company.id if user_company else ''"/>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-bold">Department</label>
+                                            <input type="text" class="form-control" disabled="disabled"
+                                                   t-att-value="user_department.name if user_department else '—'"/>
+                                            <input type="hidden" name="department_id"
+                                                   t-att-value="user_department.id if user_department else ''"/>
+                                        </div>
+                                    </div>
+
+                                    <!-- ── SECTION: Location ── -->
+                                    <div class="border-bottom pb-2 mb-3">
+                                        <h6 class="text-uppercase text-muted fw-bold"
+                                            style="font-size:11px;letter-spacing:1px">
+                                            <i class="fa fa-map-marker me-1"/>Location
+                                        </h6>
+                                    </div>
+
+                                    <div class="row mb-3">
+                                        <div class="col-md-4 mb-3 mb-md-0">
+                                            <label class="form-label fw-bold" for="location_id">Main Location</label>
+                                            <select name="location_id" id="location_id"
+                                                    class="form-select"
+                                                    onchange="onLocationChange(this.value)">
+                                                <option value="">— Select Location —</option>
+                                                <t t-foreach="locations" t-as="loc">
+                                                    <option t-att-value="loc.id"
+                                                            t-att-selected="str(post.get('location_id','')) == str(loc.id) if post else ''">
+                                                        <t t-out="loc.name"/>
+                                                    </option>
+                                                </t>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4 mb-3 mb-md-0">
+                                            <label class="form-label fw-bold" for="sublocation_id">Sub-location</label>
+                                            <select name="sublocation_id" id="sublocation_id" class="form-select">
+                                                <option value="">— Select Sub-location —</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label fw-bold" for="building">Unit / Room</label>
+                                            <input type="text" name="building" id="building"
+                                                   class="form-control"
+                                                   t-att-value="post.get('building', '') if post else ''"
+                                                   placeholder="e.g. Room 101, Villa 5"/>
+                                        </div>
+                                    </div>
+
+                                    <!-- Asset location auto-fill banner -->
+                                    <div class="row mb-4" id="asset_location_row" style="display:none">
+                                        <div class="col-12">
+                                            <div class="alert alert-info py-2 mb-0 d-flex align-items-center">
+                                                <i class="fa fa-map-marker me-2"/>
+                                                <span>
+                                                    <strong>Asset Location:</strong>
+                                                    <span id="asset_location_display" class="ms-1">—</span>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- ── SECTION: Equipment ── -->
+                                    <div class="border-bottom pb-2 mb-3">
+                                        <h6 class="text-uppercase text-muted fw-bold"
+                                            style="font-size:11px;letter-spacing:1px">
+                                            <i class="fa fa-cog me-1"/>Equipment
+                                        </h6>
+                                    </div>
+
+                                    <div class="row mb-4">
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-bold" for="asset_id">Equipment / Asset</label>
+                                            <select name="asset_id" id="asset_id"
+                                                    class="form-select"
+                                                    onchange="onAssetChange(this.value)">
+                                                <option value="">— Select Equipment —</option>
+                                                <t t-foreach="assets" t-as="asset">
+                                                    <option t-att-value="asset.id"
+                                                            t-att-data-location-id="asset.location_id.id or ''"
+                                                            t-att-data-location-name="asset.location_id.name or ''"
+                                                            t-att-selected="str(post.get('asset_id','')) == str(asset.id) if post else ''">
+                                                        <t t-out="asset.name"/>
+                                                    </option>
+                                                </t>
+                                            </select>
+                                            <div class="form-text text-muted">
+                                                <i class="fa fa-info-circle me-1"/>
+                                                Selecting an asset will auto-fill the location above.
+                                            </div>
+                                        </div>
+                                    </div>
 
                                     <!-- ── SECTION: Request Details ── -->
                                     <div class="border-bottom pb-2 mb-3">
@@ -125,137 +265,6 @@
                                         </div>
                                     </div>
 
-                                    <!-- ── SECTION: Location ── -->
-                                    <div class="border-bottom pb-2 mb-3">
-                                        <h6 class="text-uppercase text-muted fw-bold"
-                                            style="font-size:11px;letter-spacing:1px">
-                                            <i class="fa fa-map-marker me-1"/>Location
-                                        </h6>
-                                    </div>
-
-                                    <div class="row mb-3">
-                                        <div class="col-md-4 mb-3 mb-md-0">
-                                            <label class="form-label fw-bold" for="location_id">Main Location</label>
-                                            <select name="location_id" id="location_id"
-                                                    class="form-select"
-                                                    onchange="onLocationChange(this.value)">
-                                                <option value="">— Select Location —</option>
-                                                <t t-foreach="locations" t-as="loc">
-                                                    <option t-att-value="loc.id"
-                                                            t-att-selected="str(post.get('location_id','')) == str(loc.id) if post else ''">
-                                                        <t t-out="loc.name"/>
-                                                    </option>
-                                                </t>
-                                            </select>
-                                        </div>
-                                        <div class="col-md-4 mb-3 mb-md-0">
-                                            <label class="form-label fw-bold" for="sublocation_id">Sub-location</label>
-                                            <select name="sublocation_id" id="sublocation_id" class="form-select">
-                                                <option value="">— Select Sub-location —</option>
-                                            </select>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <label class="form-label fw-bold" for="building">Unit / Room</label>
-                                            <input type="text" name="building" id="building"
-                                                   class="form-control"
-                                                   t-att-value="post.get('building', '') if post else ''"
-                                                   placeholder="e.g. Room 101, Villa 5"/>
-                                        </div>
-                                    </div>
-
-                                    <!-- Asset location auto-fill banner -->
-                                    <div class="row mb-3" id="asset_location_row" style="display:none">
-                                        <div class="col-12">
-                                            <div class="alert alert-info py-2 mb-0 d-flex align-items-center">
-                                                <i class="fa fa-map-marker me-2"/>
-                                                <span>
-                                                    <strong>Asset Location:</strong>
-                                                    <span id="asset_location_display" class="ms-1">—</span>
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- ── SECTION: Equipment ── -->
-                                    <div class="border-bottom pb-2 mb-3">
-                                        <h6 class="text-uppercase text-muted fw-bold"
-                                            style="font-size:11px;letter-spacing:1px">
-                                            <i class="fa fa-cog me-1"/>Equipment
-                                        </h6>
-                                    </div>
-
-                                    <div class="row mb-4">
-                                        <div class="col-md-6">
-                                            <label class="form-label fw-bold" for="asset_id">Equipment / Asset</label>
-                                            <select name="asset_id" id="asset_id"
-                                                    class="form-select"
-                                                    onchange="onAssetChange(this.value)">
-                                                <option value="">— Select Equipment —</option>
-                                                <t t-foreach="assets" t-as="asset">
-                                                    <option t-att-value="asset.id"
-                                                            t-att-data-location-id="asset.location_id.id or ''"
-                                                            t-att-data-location-name="asset.location_id.name or ''"
-                                                            t-att-selected="str(post.get('asset_id','')) == str(asset.id) if post else ''">
-                                                        <t t-out="asset.name"/>
-                                                    </option>
-                                                </t>
-                                            </select>
-                                            <div class="form-text text-muted">
-                                                <i class="fa fa-info-circle me-1"/>
-                                                Selecting an asset will auto-fill the location above.
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- ── SECTION: Requester Info ── -->
-                                    <div class="border-bottom pb-2 mb-3">
-                                        <h6 class="text-uppercase text-muted fw-bold"
-                                            style="font-size:11px;letter-spacing:1px">
-                                            <i class="fa fa-building me-1"/>Organisation
-                                        </h6>
-                                    </div>
-
-                                    <div class="row mb-3">
-                                        <div class="col-md-6 mb-3 mb-md-0">
-                                            <label class="form-label fw-bold" for="company_id">Company</label>
-                                            <select name="company_id" id="company_id"
-                                                    class="form-select"
-                                                    onchange="onCompanyChange(this.value)">
-                                                <option value="">— Select Company —</option>
-                                                <t t-foreach="companies" t-as="company">
-                                                    <option t-att-value="company.id"
-                                                            t-att-selected="str(post.get('company_id','')) == str(company.id) if post else str(user_company_id) == str(company.id)">
-                                                        <t t-out="company.name"/>
-                                                    </option>
-                                                </t>
-                                            </select>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label fw-bold" for="department_id">Department</label>
-                                            <select name="department_id" id="department_id" class="form-select">
-                                                <option value="">— Select Department —</option>
-                                                <t t-foreach="departments" t-as="dept">
-                                                    <option t-att-value="dept.id"
-                                                            t-att-selected="str(post.get('department_id','')) == str(dept.id) if post else ''">
-                                                        <t t-out="dept.name"/>
-                                                    </option>
-                                                </t>
-                                            </select>
-                                        </div>
-                                    </div>
-
-                                    <!-- Remarks -->
-                                    <div class="row mb-4">
-                                        <div class="col-12">
-                                            <label class="form-label fw-bold" for="remarks">Remarks</label>
-                                            <textarea name="remarks" id="remarks" rows="2"
-                                                      class="form-control"
-                                                      placeholder="Any additional remarks or special instructions...">
-                                                <t t-out="post.get('remarks','') if post else ''"/>
-                                            </textarea>
-                                        </div>
-                                    </div>
-
                                     <!-- ── Approver card ── -->
                                     <div class="alert py-3 mb-4"
                                          style="background:#f8f9ff;border:1px solid #e0e4ff;border-radius:8px">
@@ -323,7 +332,6 @@
     document.querySelectorAll(".portal-star").forEach(function (star) {
         star.addEventListener("click", function () {
             var val = parseInt(this.dataset.val);
-            // Click same star again = reset to 0
             renderStars(val === currentPriority ? 0 : val);
         });
         star.addEventListener("mouseenter", function () {
@@ -337,7 +345,6 @@
         });
     });
 
-    // Init stars on page load (handles validation re-render)
     renderStars(currentPriority);
 
     // ── JSON-RPC helper ──────────────────────────────────────────────────
@@ -352,22 +359,121 @@
         .catch(function (e) { console.error(url, e); });
     }
 
-    // ── Company change ───────────────────────────────────────────────────
-    function onCompanyChange(companyId) {
-        // Departments
-        callJSON("/my/tickets/departments_by_company",
-            {company_id: companyId ? parseInt(companyId) : null},
-            function (depts) {
-                var sel = document.getElementById("department_id");
-                sel.innerHTML = '<option value="">— Select Department —</option>';
-                (depts || []).forEach(function (d) {
-                    sel.innerHTML += '<option value="' + d.id + '">' + d.name + '</option>';
+    // ── Searchable select wrapper ───────────────────────────────────────────
+    function makeSearchable(selectEl, placeholder) {
+        if (!selectEl || selectEl.dataset.searchableInit) return;
+        selectEl.dataset.searchableInit = "1";
+        selectEl.style.display = "none";
+
+        var wrap = document.createElement("div");
+        wrap.className = "searchable-select";
+        selectEl.parentNode.insertBefore(wrap, selectEl);
+        wrap.appendChild(selectEl);
+
+        var input = document.createElement("input");
+        input.type = "text";
+        input.className = "form-control";
+        input.autocomplete = "off";
+        input.placeholder = placeholder || "Type to search...";
+        wrap.insertBefore(input, selectEl);
+
+        var dropdown = document.createElement("div");
+        dropdown.className = "searchable-select-dropdown";
+        wrap.appendChild(dropdown);
+
+        function selectedText() {
+            var opt = selectEl.options[selectEl.selectedIndex];
+            return (opt && opt.value) ? opt.text : "";
+        }
+
+        function buildList(filterText) {
+            dropdown.innerHTML = "";
+            var filterLower = (filterText || "").toLowerCase();
+            var any = false;
+            Array.prototype.forEach.call(selectEl.options, function (opt) {
+                if (!opt.value) return;
+                if (filterLower && opt.text.toLowerCase().indexOf(filterLower) === -1) return;
+                any = true;
+                var item = document.createElement("div");
+                item.className = "searchable-select-item" + (opt.value === selectEl.value ? " active" : "");
+                item.textContent = opt.text;
+                item.addEventListener("mousedown", function (e) {
+                    e.preventDefault();
+                    selectEl.value = opt.value;
+                    input.value = opt.text;
+                    dropdown.style.display = "none";
+                    selectEl.dispatchEvent(new Event("change"));
                 });
+                dropdown.appendChild(item);
+            });
+            if (!any) {
+                var empty = document.createElement("div");
+                empty.className = "searchable-select-empty text-muted";
+                empty.textContent = "No results";
+                dropdown.appendChild(empty);
             }
-        );
-        // Assets
-        callJSON("/my/tickets/assets_by_company",
-            {company_id: companyId ? parseInt(companyId) : null},
+        }
+
+        input.addEventListener("focus", function () {
+            buildList("");
+            dropdown.style.display = "block";
+        });
+        input.addEventListener("input", function () {
+            buildList(input.value);
+            dropdown.style.display = "block";
+        });
+        input.addEventListener("blur", function () {
+            setTimeout(function () {
+                dropdown.style.display = "none";
+                input.value = selectedText();
+            }, 150);
+        });
+
+        input.value = selectedText();
+
+        // Exposed so callers can refresh the visible text after options are
+        // repopulated via AJAX (e.g. location -> sublocation, location -> assets)
+        selectEl._searchableRefresh = function () {
+            input.value = selectedText();
+        };
+    }
+
+    // ── Location change — load sub-locations ─────────────────────────────
+    var suppressAssetReload = false;
+
+    function onLocationChange(locId) {
+        var subSel = document.getElementById("sublocation_id");
+        subSel.innerHTML = '<option value="">— Select Sub-location —</option>';
+        subSel.onchange = function () { onSublocationChange(subSel.value); };
+
+        if (locId) {
+            callJSON("/my/tickets/sublocations", {parent_id: parseInt(locId)}, function (locs) {
+                (locs || []).forEach(function (l) {
+                    subSel.innerHTML += '<option value="' + l.id + '">' + l.name + '</option>';
+                });
+                if (subSel._searchableRefresh) subSel._searchableRefresh();   // <-- add
+            });
+        } else if (subSel._searchableRefresh) {
+            subSel._searchableRefresh();   // <-- add
+        }
+
+        if (!suppressAssetReload) {
+            reloadAssets(locId, null);
+        }
+    }
+    window.onLocationChange = onLocationChange;
+
+    function onSublocationChange(subId) {
+        if (!suppressAssetReload) {
+            var locId = document.getElementById("location_id").value;
+            reloadAssets(locId, subId);
+        }
+    }
+
+    function reloadAssets(locationId, sublocationId) {
+        callJSON("/my/tickets/assets_by_location",
+            {location_id: locationId ? parseInt(locationId) : null,
+             sublocation_id: sublocationId ? parseInt(sublocationId) : null},
             function (assets) {
                 var sel = document.getElementById("asset_id");
                 sel.innerHTML = '<option value="">— Select Equipment —</option>';
@@ -377,35 +483,20 @@
                     opt.text = a.name;
                     opt.dataset.locationId   = a.location_id   || "";
                     opt.dataset.locationName = a.location_name || "";
-                    opt.dataset.locationFull = a.location_full || "";
                     sel.appendChild(opt);
                 });
-                clearAssetLocation();
+                if (sel._searchableRefresh) sel._searchableRefresh();   // <-- add
             }
         );
     }
-    window.onCompanyChange = onCompanyChange;
 
-    // ── Location change — load sub-locations ─────────────────────────────
-    function onLocationChange(locId) {
-        var sel = document.getElementById("sublocation_id");
-        sel.innerHTML = '<option value="">— Select Sub-location —</option>';
-        if (!locId) return;
-        callJSON("/my/tickets/sublocations", {parent_id: parseInt(locId)}, function (locs) {
-            (locs || []).forEach(function (l) {
-                sel.innerHTML += '<option value="' + l.id + '">' + l.name + '</option>';
-            });
-        });
-    }
-    window.onLocationChange = onLocationChange;
-
-    // ── Asset change — auto-fill location ────────────────────────────────
+    // ── Asset change — auto-fill location (without re-filtering itself away) ──
     function onAssetChange(assetId) {
         if (!assetId) { clearAssetLocation(); return; }
         var sel  = document.getElementById("asset_id");
         var opt  = sel.options[sel.selectedIndex];
         var locId   = opt.dataset.locationId   || "";
-        var locName = opt.dataset.locationName || opt.dataset.locationFull || "";
+        var locName = opt.dataset.locationName || "";
 
         if (locName) {
             document.getElementById("asset_location_display").textContent = locName;
@@ -414,23 +505,17 @@
             clearAssetLocation();
         }
 
-        // Try to match location dropdown
         if (locId) {
             var locSel = document.getElementById("location_id");
-            var matched = false;
+            suppressAssetReload = true; // picking the asset drives the location, not the other way around
             for (var i = 0; i < locSel.options.length; i++) {
                 if (locSel.options[i].value == locId) {
                     locSel.selectedIndex = i;
                     onLocationChange(locId);
-                    matched = true;
                     break;
                 }
             }
-            if (!matched) {
-                // Location might be a sub-location — find its parent via AJAX
-                // For now, fire sublocations load with the locId directly
-                onLocationChange(locId);
-            }
+            suppressAssetReload = false;
         }
     }
     window.onAssetChange = onAssetChange;
@@ -442,8 +527,9 @@
 
     // ── Init on load ─────────────────────────────────────────────────────
     document.addEventListener("DOMContentLoaded", function () {
-        var compSel = document.getElementById("company_id");
-        if (compSel && compSel.value) onCompanyChange(compSel.value);
+        makeSearchable(document.getElementById("location_id"), "Search location...");
+        makeSearchable(document.getElementById("sublocation_id"), "Search sub-location...");
+        makeSearchable(document.getElementById("asset_id"), "Search equipment...");
 
         var locSel = document.getElementById("location_id");
         if (locSel && locSel.value) onLocationChange(locSel.value);
@@ -488,14 +574,19 @@
 
     <!-- ── My Home link ─────────────────────────────────────────────────────── -->
     <template id="portal_my_home_ticket_link" inherit_id="portal.portal_my_home" priority="20">
-        <xpath expr="//div[hasclass('o_portal_docs')]" position="inside">
-            <div class="o_portal_docs col-lg-3 col-md-4 col-sm-6 col-xs-12">
-                <a href="/my/tickets/new" class="o_portal_doc_item">
-                    <span class="o_portal_doc_icon">
-                        <i class="fa fa-wrench fa-2x text-primary"/>
+        <xpath expr="//div[hasclass('o_portal_docs')]" position="after">
+            <div class="col-lg-3 col-md-4 col-sm-6 col-xs-12 mb-3">
+                <a href="/my/tickets/new"
+                   class="o_portal_doc_item d-flex align-items-center p-3 rounded shadow-sm text-decoration-none"
+                   style="background-color:#f8f9fa; transition: box-shadow .15s ease-in-out;">
+                    <span class="o_portal_doc_icon d-flex align-items-center justify-content-center rounded-circle me-3 flex-shrink-0"
+                          style="width:48px;height:48px;background:#e7f1ff">
+                        <i class="fa fa-wrench fa-lg text-primary"/>
                     </span>
-                    <span class="o_portal_doc_name">Submit a Service Request</span>
-                    <span class="o_portal_doc_count"></span>
+                    <span>
+                        <span class="o_portal_doc_name d-block fw-bold text-dark">Submit a Service Request</span>
+                        <small class="text-muted">Report an issue or request maintenance</small>
+                    </span>
                 </a>
             </div>
         </xpath>
