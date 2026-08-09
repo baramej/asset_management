@@ -19,6 +19,16 @@ class HelpdeskPortalTicketController(http.Controller):
         mgr = emp.parent_id.user_id
         return mgr if mgr.email else False
 
+    def _get_employee(self, user):
+        """Return the hr.employee record linked to this portal/internal user, if any."""
+        Employee = request.env["hr.employee"].sudo()
+        emp = Employee.search([("user_id", "=", user.id)], limit=1)
+        if not emp and user.partner_id.email:
+            emp = Employee.search(
+                [("work_email", "=", user.partner_id.email)], limit=1
+            )
+        return emp
+
     def _get_or_create_manager_approval_stage(self):
         Stage = request.env["helpdesk.stage"].sudo()
         stage = Stage.search([("name", "ilike", "Waiting Manager Approval")], limit=1)
@@ -34,8 +44,6 @@ class HelpdeskPortalTicketController(http.Controller):
         """Return all assets, optionally filtered by company."""
         domain = []
         if company_id:
-            # Filter assets where the customer partner belongs to the given company
-            # Try both direct company match and partner with that company
             partners = request.env["res.partner"].sudo().search([
                 "|",
                 ("company_id", "=", company_id),
@@ -47,6 +55,35 @@ class HelpdeskPortalTicketController(http.Controller):
             domain, order="name asc"
         )
 
+    def _get_form_context(self, user, partner, post=None, error=None, error_message=None):
+        """Shared context builder for both the GET form and POST error re-render."""
+        employee = self._get_employee(user)
+        user_company = user.company_id
+        user_department = employee.department_id if employee else False
+
+        locations = request.env["asset.location"].sudo().search(
+            [("parent_id", "=", False), ("company_id", "=", user_company.id)],
+            order="name",
+        )
+        job_categories = request.env["helpdesk.job.category"].sudo().search(
+            [("active", "=", True)], order="sequence, name"
+        )
+        assets = self._get_assets_for_user(user_company.id)
+        manager = self._get_employee_manager(partner)
+
+        return {
+            "user_company": user_company,
+            "user_department": user_department,
+            "locations": locations,
+            "job_categories": job_categories,
+            "assets": assets,
+            "manager": manager,
+            "page_name": "new_ticket",
+            "error": error or {},
+            "error_message": error_message or [],
+            "post": post or {},
+        }
+
     # ── GET ──────────────────────────────────────────────────────────────────
 
     @http.route("/my/tickets/new", auth="user", website=True, methods=["GET"])
@@ -54,36 +91,9 @@ class HelpdeskPortalTicketController(http.Controller):
         user = request.env.user
         partner = user.partner_id
 
-        companies = request.env["res.company"].sudo().search([], order="name")
-        # Top-level locations only (no parent) — sub-locations loaded separately
-        locations = request.env["asset.location"].sudo().search(
-            [("parent_id", "=", False)], order="name"
-        )
-        departments = request.env["hr.department"].sudo().search(
-            [("company_id", "=", user.company_id.id)], order="name"
-        )
-        job_categories = request.env["helpdesk.job.category"].sudo().search(
-            [("active", "=", True)], order="sequence, name"
-        )
-        # Load ALL assets initially — company filter via AJAX
-        assets = request.env["account.asset"].sudo().search([], order="name asc")
-        manager = self._get_employee_manager(partner)
-
+        ctx = self._get_form_context(user, partner)
         return request.render(
-            "asset_management.portal_helpdesk_ticket_form",
-            {
-                "companies": companies,
-                "departments": departments,
-                "locations": locations,
-                "job_categories": job_categories,
-                "assets": assets,
-                "user_company_id": user.company_id.id,
-                "manager": manager,
-                "page_name": "new_ticket",
-                "error": {},
-                "error_message": [],
-                "post": {},
-            },
+            "asset_management.portal_helpdesk_ticket_form", ctx
         )
 
     # ── POST ─────────────────────────────────────────────────────────────────
@@ -107,35 +117,15 @@ class HelpdeskPortalTicketController(http.Controller):
             error_message.append(_("Job Category is required."))
 
         if errors:
-            companies = request.env["res.company"].sudo().search([], order="name")
-            locations = request.env["asset.location"].sudo().search(
-                [("parent_id", "=", False)], order="name"
+            ctx = self._get_form_context(
+                user, partner, post=post, error=errors, error_message=error_message
             )
-            departments = request.env["hr.department"].sudo().search(
-                [("company_id", "=", user.company_id.id)], order="name"
-            )
-            job_categories = request.env["helpdesk.job.category"].sudo().search(
-                [("active", "=", True)], order="sequence, name"
-            )
-            assets = request.env["account.asset"].sudo().search([], order="name asc")
-            manager = self._get_employee_manager(partner)
             return request.render(
-                "asset_management.portal_helpdesk_ticket_form",
-                {
-                    "companies": companies,
-                    "departments": departments,
-                    "locations": locations,
-                    "job_categories": job_categories,
-                    "assets": assets,
-                    "user_company_id": user.company_id.id,
-                    "manager": manager,
-                    "page_name": "new_ticket",
-                    "error": errors,
-                    "error_message": error_message,
-                    "post": post,
-                },
+                "asset_management.portal_helpdesk_ticket_form", ctx
             )
 
+        employee = self._get_employee(user)
+        user_department = employee.department_id if employee else False
         manager = self._get_employee_manager(partner)
         stage = self._get_or_create_manager_approval_stage()
 
@@ -151,21 +141,19 @@ class HelpdeskPortalTicketController(http.Controller):
             "stage_id": stage.id,
             "priority": priority,
         }
-        # Asset
         if post.get("asset_id"):
             ticket_vals["asset_id"] = int(post["asset_id"])
 
         ticket = request.env["helpdesk.ticket"].sudo().create(ticket_vals)
 
         import uuid as _uuid
+        # Company / department are trusted from the server-side user record only —
+        # never from POST — since these fields are now locked/non-editable on the form.
         extra_vals = {
             "ticket_id": ticket.id,
-            "remarks": post.get("remarks", "").strip() or False,
+            "company_id": user.company_id.id,
+            "department_id": user_department.id if user_department else False,
         }
-        if post.get("company_id"):
-            extra_vals["company_id"] = int(post["company_id"])
-        if post.get("department_id"):
-            extra_vals["department_id"] = int(post["department_id"])
         if post.get("location_id"):
             extra_vals["location_id"] = int(post["location_id"])
         if post.get("sublocation_id"):
@@ -224,49 +212,6 @@ class HelpdeskPortalTicketController(http.Controller):
 
     # ── AJAX endpoints ────────────────────────────────────────────────────────
 
-    @http.route("/my/tickets/assets_by_company", auth="user", type="json", methods=["POST"])
-    def assets_by_company(self, company_id=None, **kwargs):
-        """Return assets filtered by company. If no company, return all."""
-        if not company_id:
-            assets = request.env["account.asset"].sudo().search([], order="name asc")
-        else:
-            cid = int(company_id)
-            # Match assets whose customer is a partner of that company
-            company_rec = request.env["res.company"].sudo().browse(cid)
-            partner_ids = request.env["res.partner"].sudo().search([
-                "|",
-                ("company_id", "=", cid),
-                ("id", "=", company_rec.partner_id.id),
-            ]).ids
-            assets = request.env["account.asset"].sudo().search(
-                [("customer_id", "in", partner_ids)] if partner_ids else [],
-                order="name asc",
-            )
-            # Fallback: if nothing found, return all (better UX than empty list)
-            if not assets:
-                assets = request.env["account.asset"].sudo().search([], order="name asc")
-
-        return [
-            {
-                "id": a.id,
-                "name": a.name,
-                "location_id": a.location_id.id or False,
-                "location_name": a.location_id.name or "",
-                "location_full": a.location_id.full_code or a.location_id.name or "",
-            }
-            for a in assets
-        ]
-
-    @http.route("/my/tickets/departments_by_company", auth="user", type="json", methods=["POST"])
-    def departments_by_company(self, company_id=None, **kwargs):
-        if not company_id:
-            depts = request.env["hr.department"].sudo().search([], order="name")
-        else:
-            depts = request.env["hr.department"].sudo().search(
-                [("company_id", "=", int(company_id))], order="name"
-            )
-        return [{"id": d.id, "name": d.name} for d in depts]
-
     @http.route("/my/tickets/sublocations", auth="user", type="json", methods=["POST"])
     def sublocations(self, parent_id=None, **kwargs):
         if not parent_id:
@@ -275,3 +220,37 @@ class HelpdeskPortalTicketController(http.Controller):
             [("parent_id", "=", int(parent_id))], order="name"
         )
         return [{"id": l.id, "name": l.name} for l in locs]
+
+    def _assets_payload(self, assets):
+        return [
+            {
+                "id": a.id,
+                "name": a.name,
+                "location_id": a.location_id.id or False,
+                "location_name": a.location_id.name or "",
+            }
+            for a in assets
+        ]
+
+    @http.route("/my/tickets/assets_by_location", auth="user", type="json", methods=["POST"])
+    def assets_by_location(self, location_id=None, sublocation_id=None, **kwargs):
+        """Return assets for the given location.
+        - sublocation chosen  -> assets at that exact sub-location only
+        - only main location  -> assets at that location AND all its descendants
+        - neither             -> fall back to full company-scoped list
+        """
+        user = request.env.user
+
+        if sublocation_id:
+            assets = request.env["account.asset"].sudo().search(
+                [("location_id", "=", int(sublocation_id))], order="name asc"
+            )
+        elif location_id:
+            assets = request.env["account.asset"].sudo().search(
+                [("location_id", "child_of", int(location_id))], order="name asc"
+            )
+        else:
+            assets = self._get_assets_for_user(user.company_id.id)
+            return self._assets_payload(assets)
+
+        return self._assets_payload(assets)
