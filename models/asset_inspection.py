@@ -1633,3 +1633,124 @@ class AssetInspectionMaterial(models.Model):
             ),
             subtype_xmlid="mail.mt_note",
         )
+
+class PropertyDetailsInspection(models.Model):
+    _inherit = "property.details"
+
+    inspection_count = fields.Integer(
+        string="Inspections", compute="_compute_inspection_count"
+    )
+
+    def _compute_inspection_count(self):
+        for rec in self:
+            rec.inspection_count = self.env["asset.job.order"].search_count(
+                [("property_id", "=", rec.id)]
+            )
+
+    def action_view_inspection_history(self):
+        self.ensure_one()
+        wizard = self.env["property.inspection.history.wizard"].create_for_property(self.id)
+        return {
+            "name": "Inspection History",
+            "type": "ir.actions.act_window",
+            "res_model": "property.inspection.history.wizard",
+            "view_mode": "form",
+            "res_id": wizard.id,
+            "target": "new",
+        }
+
+    def _get_current_occupant_partner(self):
+        self.ensure_one()
+        tenancy = self.env["tenancy.details"].sudo().search(
+            [("property_id", "=", self.id), ("contract_type", "=", "running_contract")],
+            limit=1,
+        )
+        if tenancy and tenancy.tenancy_id:
+            return tenancy.tenancy_id
+
+        occupy = self.env["occupy.details"].sudo().search(
+            [("property_id", "=", self.id), ("state", "=", "running")],
+            limit=1,
+        )
+        if occupy and occupy.occupant_id:
+            return occupy.occupant_id
+
+        return self.env["res.partner"]
+
+    def action_schedule_inspection(self):
+        self.ensure_one()
+        occupant = self._get_current_occupant_partner()
+        return {
+            "name": "Schedule Inspection",
+            "type": "ir.actions.act_window",
+            "res_model": "property.inspection.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {
+                "default_property_id": self.id,
+                "default_building_id": self.subproject_id.id,
+                "default_flat_no": self.building_no or self.name,
+                "default_occupant_id": occupant.id if occupant else False,
+            },
+        }
+
+class PropertyInspectionHistoryWizard(models.TransientModel):
+    _name = "property.inspection.history.wizard"
+    _description = "Property Inspection History"
+
+    property_id = fields.Many2one("property.details", required=True)
+    line_ids = fields.One2many(
+        "property.inspection.history.line", "wizard_id", string="Inspections"
+    )
+
+    @api.model
+    def create_for_property(self, property_id):
+        jobs = self.env["asset.job.order"].sudo().search(
+            [("property_id", "=", property_id)], order="scheduled_date desc, id desc"
+        )
+        lines = []
+        for job in jobs:
+            lines.append((0, 0, {
+                "job_order_id": job.id,
+                "inspection_type": job.inspection_type,
+                "flat_no": job.flat_no,
+                "resident_name": job.resident_name,
+                "scheduled_date": job.scheduled_date,
+                "state": job.state,
+            }))
+        return self.create({"property_id": property_id, "line_ids": lines})
+
+
+class PropertyInspectionHistoryLine(models.TransientModel):
+    _name = "property.inspection.history.line"
+    _description = "Property Inspection History Line"
+
+    wizard_id = fields.Many2one("property.inspection.history.wizard", ondelete="cascade")
+    job_order_id = fields.Many2one("asset.job.order", readonly=True)
+    inspection_type = fields.Selection(
+        [("move_in", "Move In"), ("move_out", "Move Out")], readonly=True
+    )
+    flat_no = fields.Char(readonly=True)
+    resident_name = fields.Char(readonly=True)
+    scheduled_date = fields.Datetime(readonly=True)
+    state = fields.Char(readonly=True)
+
+    def action_download_report(self):
+        self.ensure_one()
+        report_wizard = self.env["inspection.report.wizard"].create({
+            "job_order_id": self.job_order_id.id,
+        })
+        return report_wizard.action_generate()
+
+
+class InspectionReportWizard(models.TransientModel):
+    _name = "inspection.report.wizard"
+    _description = "Flat Inspection Report"
+
+    job_order_id = fields.Many2one("asset.job.order", required=True)
+
+    def action_generate(self):
+        self.ensure_one()
+        return self.env.ref(
+            "asset_management.action_report_flat_inspection"
+        ).report_action(self.job_order_id)

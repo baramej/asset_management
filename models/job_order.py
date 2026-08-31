@@ -1944,3 +1944,14 @@ class AssetJobAdditionalService(models.Model):
     def _compute_subtotal(self):
         for rec in self:
             rec.subtotal = rec.quantity * rec.unit_price
+
+class AssetJobOrderInspection(models.Model):
+    _inherit = "asset.job.order"
+
+    property_id = fields.Many2one(
+        related="maintenance_task_id.property_id", store=True, string="Property"
+    )
+    inspection_type = fields.Selection(
+        related="maintenance_task_id.inspection_type", store=True,
+        string="Inspection Type",
+    )

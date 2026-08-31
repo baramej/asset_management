@@ -75,6 +75,7 @@ class ManpowerImportBatch(models.Model):
         ("imported", "Imported"),
         ("confirmed", "Confirmed"),
     ], default="draft", tracking=True)
+    
 
     import_file = fields.Binary(string="Excel File (.xlsx)", attachment=True)
     import_filename = fields.Char(string="File Name")

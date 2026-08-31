@@ -830,6 +830,10 @@ class AssetMaintenanceTask(models.Model):
         if self.job_type == "flat":
             job.action_load_checklist_to_job_order()
 
+        # Migrate PM checklist (for preventive tasks with a service checklist)
+        if self.checklist_line_ids:
+            job.action_copy_pm_checklist_from_task()
+
         return self._open_job_order()
 
     def _open_job_order(self):
@@ -1711,3 +1715,14 @@ class AssetContractSparePartWizardLine(models.TransientModel):
         ('preventive', 'Preventive'),
         ('corrective', 'Corrective'),
     ], string="Usage Type", default='preventive')
+
+class AssetMaintenanceTaskInspection(models.Model):
+    _inherit = "asset.maintenance.task"
+
+    property_id = fields.Many2one(
+        related="helpdesk_ticket_id.property_id", store=True, string="Property"
+    )
+    inspection_type = fields.Selection(
+        related="helpdesk_ticket_id.inspection_type", store=True,
+        string="Inspection Type",
+    )

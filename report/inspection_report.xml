@@ -1,0 +1,89 @@
+<odoo>
+    <record id="action_report_flat_inspection" model="ir.actions.report">
+        <field name="name">Flat Inspection Report</field>
+        <field name="model">asset.job.order</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">asset_management.report_flat_inspection_document</field>
+        <field name="report_file">asset_management.report_flat_inspection_document</field>
+        <field name="print_report_name">'%s - %s' % (object.flat_no or '', object.inspection_type or '')</field>
+    </record>
+
+    <template id="report_flat_inspection_document">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="job">
+                <t t-call="web.external_layout">
+                    <div class="page">
+                        <h2 style="text-align:center;">
+                            FLAT INSPECTION REPORT ( <t t-esc="'Move In' if job.inspection_type == 'move_in' else 'Move Out'"/> )
+                        </h2>
+                        <table style="width:100%; margin-bottom:14px;">
+                            <tr>
+                                <td><strong>Tenant:</strong> <t t-esc="job.resident_name or '-'"/></td>
+                                <td><strong>Apartment / Villa No.:</strong> <t t-esc="job.flat_no or '-'"/></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Location:</strong>
+                                    <t t-esc="job.property_id.subproject_id.name or job.property_id.property_project_id.name or '-'"/>
+                                </td>
+                                <td><strong>Apartment / Villa Type:</strong> <t t-esc="job.checklist_template_id.name or '-'"/></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Date:</strong> <t t-esc="job.scheduled_date"/></td>
+                                <td></td>
+                            </tr>
+                        </table>
+                        <table class="table table-sm table-bordered" style="width:100%;">
+                            <thead>
+                                <tr style="background-color:#D9D9D9;">
+                                    <th>#</th>
+                                    <th>Description</th>
+                                    <th>Key No.</th>
+                                    <th>Qty</th>
+                                    <th>Status</th>
+                                    <th>Remarks</th>
+                                    <th>Cost</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-set="sections" t-value="[('keys','Keys'),('electrical','Electrical'),('plumbing','Plumbing'),('general','General / Damages'),('other','Other')]"/>
+                                <t t-foreach="sections" t-as="sec">
+                                    <t t-set="sec_key" t-value="sec[0]"/>
+                                    <t t-set="sec_label" t-value="sec[1]"/>
+                                    <t t-set="lines" t-value="job.flat_checklist_line_ids.filtered(lambda l: l.section == sec_key)"/>
+                                    <t t-if="lines">
+                                        <tr style="background-color:#F2F2F2;">
+                                            <td colspan="7"><strong t-esc="sec_label"/></td>
+                                        </tr>
+                                        <t t-set="idx" t-value="0"/>
+                                        <t t-foreach="lines" t-as="line">
+                                            <t t-if="line.is_meter_reading">
+                                                <tr>
+                                                    <td></td>
+                                                    <td t-esc="line.description"/>
+                                                    <td></td><td></td><td></td><td></td>
+                                                    <td t-esc="line.meter_value"/>
+                                                </tr>
+                                            </t>
+                                            <t t-else="">
+                                                <t t-set="idx" t-value="idx + 1"/>
+                                                <tr>
+                                                    <td t-esc="idx"/>
+                                                    <td t-esc="line.description"/>
+                                                    <td t-esc="line.expected_qty"/>
+                                                    <td t-esc="line.expected_qty"/>
+                                                    <td t-esc="{'ok':'OK','missing':'NOT OK','damaged':'NOT OK','na':'N/A'}.get(line.status, '')"/>
+                                                    <td t-esc="line.remarks"/>
+                                                    <td></td>
+                                                </tr>
+                                            </t>
+                                        </t>
+                                    </t>
+                                </t>
+                            </tbody>
+                        </table>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+</odoo>

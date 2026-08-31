@@ -80,15 +80,6 @@
                                     </tr>
                                     <tr>
                                         <td>
-                                            <strong>Inspection:</strong>
-                                        </td>
-                                        <td>
-                                            <span t-if="o.inspection_id" t-field="o.inspection_id.name"/>
-                                            <span t-else="" class="text-muted">-</span>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>
                                             <strong>Scheduled Date:</strong>
                                         </td>
                                         <td>
@@ -257,19 +248,6 @@
                                                 </t>
                                             </td>
                                         </tr>
-                                        <tr>
-                                            <td>
-                                                <strong>Bill Inspection:</strong>
-                                            </td>
-                                            <td>
-                                                <t t-if="o.bill_inspection and o.inspection_id">
-                                                    <span style="color:#007bff;">Yes</span>
-                                                </t>
-                                                <t t-else="">
-                                                    <span class="text-muted">No</span>
-                                                </t>
-                                            </td>
-                                        </tr>
                                     </table>
                                 </div>
                                 <div class="col-6">
@@ -322,7 +300,6 @@
                                         <th style="width:28%;">Description</th>
                                         <th style="width:11%;">Severity</th>
                                         <th style="width:13%;">Status</th>
-                                        <th style="width:8%; text-align:center;">From Insp.</th>
                                         <th style="width:18%;">Technician Note</th>
                                         <th style="width:18%;">Additional Notes</th>
                                     </tr>
@@ -365,10 +342,6 @@
                                             <t t-elif="f.status == 'cannot_fix'">
                                                 <span style="color:#dc3545;">Cannot Fix</span>
                                             </t>
-                                        </td>
-                                        <td style="text-align:center;">
-                                            <t t-if="f.is_from_inspection">✓</t>
-                                            <t t-else="">-</t>
                                         </td>
                                         <td>
                                             <span t-if="f.technician_note" t-field="f.technician_note"/>
@@ -462,7 +435,6 @@
                                         </td>
                                         <td style="text-align:center;">
                                             <t t-if="m.source == 'task'">Task Plan</t>
-                                            <t t-elif="m.source == 'inspection'">Inspection</t>
                                             <t t-else="">Manual</t>
                                         </td>
                                         <td style="text-align:center; font-size:10px;">

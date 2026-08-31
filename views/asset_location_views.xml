@@ -6,6 +6,7 @@
             <list>
                 <field name="name"/>
                 <field name="code"/>
+                <field name="company_id"/>
                 <field name="parent_id"/>
                 <field name="gps_latitude"/>
                 <field name="gps_longitude"/>
@@ -30,6 +31,7 @@
                         <group>
                             <field name="name"/>
                             <field name="code"/>
+                            <field name="company_id"/>
                             <field name="parent_id"/>
                         </group>
                         <group>
@@ -47,6 +49,17 @@
                     </notebook>
                 </sheet>
             </form>
+        </field>
+    </record>
+
+   <record id="view_department_form_inherit_code" model="ir.ui.view">
+        <field name="name">hr.department.form.inherit.code</field>
+        <field name="model">hr.department</field>
+        <field name="inherit_id" ref="hr.view_department_form"/>
+        <field name="arch" type="xml">
+            <field name="parent_id" position="after">
+                <field name="code"/>
+            </field>
         </field>
     </record>
 

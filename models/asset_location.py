@@ -15,6 +15,7 @@ class AssetLocation(models.Model):
 
     name = fields.Char(required=True)
     code = fields.Char(help="Short code for this location, e.g. BLDG2, FL01, R101")
+    company_id = fields.Many2one("res.company", string="Company")
     parent_id = fields.Many2one("asset.location", string="Parent Location", index=True)
     parent_path = fields.Char(index=True)
     child_ids = fields.One2many("asset.location", "parent_id", string="Sub Locations")
@@ -212,3 +213,8 @@ class AssetLocation(models.Model):
             "url": f"https://www.google.com/maps?q={self.gps_latitude},{self.gps_longitude}",
             "target": "new",
         }
+
+class HrDepartment(models.Model):
+    _inherit = "hr.department"
+
+    code = fields.Char(string="Code", help="Short code for this department, e.g. IT, HR, FIN")

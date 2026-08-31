@@ -57,6 +57,33 @@ class AssetScheduleTaskWizard(models.TransientModel):
         readonly=True,
     )
 
+    property_id = fields.Many2one(
+        related="ticket_id.property_id", store=False, readonly=True
+    )
+    inspection_type = fields.Selection(
+        related="ticket_id.inspection_type", store=False, readonly=True
+    )
+
+    @api.model
+    def default_get(self, fields_list):
+        res = super().default_get(fields_list)
+        ticket_id = res.get("ticket_id") or self.env.context.get("default_ticket_id")
+        if ticket_id and "checklist_template_id" in fields_list:
+            ticket = self.env["helpdesk.ticket"].browse(ticket_id)
+            if ticket.inspection_type == "move_out" and ticket.property_id:
+                last_move_in = self.env["asset.maintenance.task"].sudo().search(
+                    [
+                        ("property_id", "=", ticket.property_id.id),
+                        ("inspection_type", "=", "move_in"),
+                        ("checklist_template_id", "!=", False),
+                    ],
+                    order="request_date desc",
+                    limit=1,
+                )
+                if last_move_in:
+                    res["checklist_template_id"] = last_move_in.checklist_template_id.id
+        return res
+
     @api.onchange("maintenance_team_id")
     def _onchange_maintenance_team_id(self):
         self._load_team_schedule()

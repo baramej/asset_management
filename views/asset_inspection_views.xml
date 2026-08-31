@@ -410,12 +410,65 @@
             <p>Inspections with equipment awaiting return to store will appear here.</p>
         </field>
     </record>
-    <menuitem
-            id="menu_helpdesk_inspection_pending_returns"
-            name="Pending Returns"
-            parent="stock.menu_stock_root"
-            action="action_asset_inspection_pending_returns"
-            sequence="21"/>
+    <record id="property_details_form_view_inspection" model="ir.ui.view">
+        <field name="name">property.details.form.view.inspection</field>
+        <field name="model">property.details</field>
+        <field name="inherit_id" ref="rental_management.property_details_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//button[@name='%(rental_management.maintenance_wizard_action)d']" position="after">
+                <button name="action_schedule_inspection"
+                        string="Schedule Inspection"
+                        type="object"
+                        class="btn btn-secondary"
+                        icon="fa-clipboard"
+                        invisible="stage == 'draft'"
+                        groups="asset_management.group_asset_inspector,asset_management.group_asset_manager"/>
+            </xpath>
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button class="oe_stat_button" type="object"
+                        name="action_view_inspection_history"
+                        icon="fa-clipboard-check"
+                        invisible="inspection_count == 0">
+                    <field name="inspection_count" string="Inspections" widget="statinfo"/>
+                </button>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_property_inspection_history_wizard_form" model="ir.ui.view">
+        <field name="name">property.inspection.history.wizard.form</field>
+        <field name="model">property.inspection.history.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Inspection History">
+                <field name="property_id" invisible="1"/>
+                <field name="line_ids" nolabel="1">
+                    <list create="false" edit="false" delete="false" open_form_view="false">
+                        <field name="inspection_type" widget="badge"
+                               decoration-success="inspection_type == 'move_in'"
+                               decoration-warning="inspection_type == 'move_out'"/>
+                        <field name="flat_no"/>
+                        <field name="resident_name"/>
+                        <field name="scheduled_date"/>
+                        <field name="state"/>
+                        <button name="action_download_report"
+                                string="Download Report"
+                                type="object"
+                                icon="fa-download"
+                                class="btn-secondary btn-sm"/>
+                    </list>
+                </field>
+                <footer>
+                    <button string="Close" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+    <!--    <menuitem-->
+    <!--            id="menu_helpdesk_inspection_pending_returns"-->
+    <!--            name="Pending Returns"-->
+    <!--            parent="stock.menu_stock_root"-->
+    <!--            action="action_asset_inspection_pending_returns"-->
+    <!--            sequence="21"/>-->
 
 
 </odoo>

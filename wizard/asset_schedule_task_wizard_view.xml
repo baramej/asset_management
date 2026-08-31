@@ -20,6 +20,13 @@
                             <field name="flat_asset_id" options="{'no_create': True}"/>
                             <field name="resident_name"/>
                             <field name="flat_no"/>
+                            <field name="property_id" invisible="1"/>
+                            <field name="inspection_type" invisible="1"/>
+                            <field name="checklist_template_id"
+                                   options="{'no_create': True}"
+                                   invisible="job_type != 'flat'"
+                                   required="job_type == 'flat'"
+                                   readonly="inspection_type == 'move_out'"/>
                         </group>
                     </group>
 
