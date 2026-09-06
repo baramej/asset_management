@@ -503,25 +503,7 @@ class AssetJobOrder(models.Model):
                 )
             )
 
-        # Partially consumed → flag remainder for return
-        partial_consumables = material_lines.filtered(
-            lambda l: l.is_consumable
-                      and l.approval_state == "collected"
-                      and l.quantity_used > 0
-                      and l.quantity_used < l.quantity_requested
-        )
-        if partial_consumables:
-            partial_consumables.write({"approval_state": "pending_return"})
-            items = ", ".join(partial_consumables.mapped("product_id.name"))
-            self.message_post(
-                body=_(
-                    "Partially consumed materials flagged for return: <b>%(items)s</b>.",
-                    items=items,
-                )
-            )
-
-        # Fully consumed → post stock write-off move
-        # AFTER — post move for ANY positive consumption, not just fully consumed
+        # ── Post consumption move FIRST for anything with qty_used > 0 (fully or partially consumed) ──
         consumed_lines = material_lines.filtered(
             lambda l: l.is_consumable
                       and l.approval_state == "collected"
@@ -539,6 +521,28 @@ class AssetJobOrder(models.Model):
                     ),
                     subtype_xmlid="mail.mt_note",
                 )
+
+        # ── AFTER consumption is posted, flag any leftover partial remainder for return ──
+        # (re-fetch fresh state since _post_consumption_move wrote approval_state="consumed")
+        self.env["asset.job.finding.material.line"].invalidate_model(["approval_state"])
+        material_lines = self.env["asset.job.finding.material.line"].search(
+            [("job_order_id", "=", self.id)]
+        )
+        partial_consumables = material_lines.filtered(
+            lambda l: l.is_consumable
+                      and l.approval_state == "consumed"
+                      and l.quantity_used > 0
+                      and l.quantity_used < l.quantity_requested
+        )
+        if partial_consumables:
+            partial_consumables.write({"approval_state": "pending_return"})
+            items = ", ".join(partial_consumables.mapped("product_id.name"))
+            self.message_post(
+                body=_(
+                    "Partially consumed materials — remainder flagged for return: <b>%(items)s</b>.",
+                    items=items,
+                )
+            )
 
         # Consumables with qty_used = 0 and still collected → treat as returned
         not_used = material_lines.filtered(
@@ -1495,14 +1499,11 @@ class AssetJobMaterialLine(models.Model):
 
     def action_mark_collected(self):
         for rec in self:
-            if rec.picking_id and rec.picking_id.state == "assigned":
-                for move in rec.picking_id.move_ids:
-                    move.quantity = move.product_uom_qty
-                rec.picking_id.sudo().button_validate()
             rec.write({"approval_state": "collected"})
             rec.job_order_id.message_post(
                 body=_(
-                    "Material <b>%(product)s</b> collected from store by <b>%(user)s</b>.",
+                    "Material <b>%(product)s</b> collected from store by <b>%(user)s</b> "
+                    "(with technician — not yet moved in stock).",
                     product=rec.product_id.name,
                     user=rec.env.user.name,
                 ),
@@ -1510,15 +1511,21 @@ class AssetJobMaterialLine(models.Model):
             )
 
     def _post_consumption_move(self):
-        """
-        Write off consumed qty: Job Order Reserved → Job Order Consumed (production virtual).
-        Uses a raw stock.move — pickings cannot route to virtual locations.
-        """
         self.ensure_one()
+
+        if self.approval_state == "consumed":
+            return
 
         if not self.quantity_used or self.quantity_used <= 0:
             return
 
+        # ── Step 1: complete the original reservation (Stock → Job Order Reserved) ──
+        if self.picking_id and self.picking_id.state in ("assigned", "confirmed", "waiting"):
+            for move in self.picking_id.move_ids:
+                move.quantity = move.product_uom_qty
+            self.picking_id.sudo().button_validate()
+
+        # ── Step 2: write off the consumed qty (Job Order Reserved → Job Order Consumed) ──
         job_location = self.env["stock.location"].search([
             ("name", "=", "Job Order Reserved"),
             ("usage", "=", "internal"),
@@ -1532,7 +1539,6 @@ class AssetJobMaterialLine(models.Model):
             )
             return
 
-        # Prefer child production location, fall back to any production location
         consumed_location = self.env["stock.location"].search([
             ("location_id", "=", job_location.id),
             ("usage", "=", "production"),
@@ -1557,22 +1563,25 @@ class AssetJobMaterialLine(models.Model):
             "product_id": self.product_id.id,
             "product_uom": self.uom_id.id,
             "product_uom_qty": self.quantity_used,
-            "quantity": self.quantity_used,
             "location_id": job_location.id,
             "location_dest_id": consumed_location.id,
             "origin": f"CONSUMED-{self.job_order_id.name}",
-            "state": "confirmed",
         })
 
-        self.env["stock.move.line"].sudo().create({
-            "move_id": move.id,
-            "product_id": self.product_id.id,
-            "product_uom_id": self.uom_id.id,
-            "quantity": self.quantity_used,
-            "location_id": job_location.id,
-            "location_dest_id": consumed_location.id,
-        })
+        move._action_confirm()
+        move._action_assign()
 
+        if not move.move_line_ids:
+            self.job_order_id.message_post(
+                body=_(
+                    "⚠ Could not reserve <b>%s</b> from Job Order Reserved for write-off "
+                    "(no quants found there — was it actually collected?).") % self.product_id.name,
+                subtype_xmlid="mail.mt_note",
+            )
+            move.sudo().unlink()
+            return
+
+        move.move_line_ids.write({"quantity": self.quantity_used})
         move.sudo()._action_done()
 
         self.write({"approval_state": "consumed"})

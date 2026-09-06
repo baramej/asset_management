@@ -1,12 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <record id="seq_asset_job_order" model="ir.sequence">
-        <field name="name">Asset Job Order</field>
-        <field name="code">asset.job.order</field>
-        <field name="prefix">JO-</field>
-        <field name="padding">5</field>
-    </record>
 
     <!-- ═══════════════════════════════════════════════════════════════════════
          FORM VIEW  (unchanged — included for completeness)
@@ -525,12 +519,9 @@
                                 </group>
                             </group>
                         </page>
-
-                        <page string="Chatter">
-                            <field name="message_ids" widget="mail_thread"/>
-                        </page>
                     </notebook>
                 </sheet>
+                <chatter/>
             </form>
         </field>
     </record>

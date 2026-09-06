@@ -20,6 +20,15 @@
         </record>
     </data>
     <data noupdate="1">
+        <record id="seq_asset_job_order" model="ir.sequence">
+            <field name="name">Asset Job Order</field>
+            <field name="code">asset.job.order</field>
+            <field name="prefix">JO-</field>
+            <field name="padding">5</field>
+            <field name="company_id" eval="False"/>
+        </record>
+    </data>
+    <data noupdate="1">
         <record id="cron_auto_close_unsigned_job_orders" model="ir.cron">
             <field name="name">Job Orders: Auto-close unsigned after 5 days</field>
             <field name="model_id" ref="model_asset_job_order"/>
