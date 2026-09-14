@@ -1540,8 +1540,9 @@ class AssetJobMaterialLine(models.Model):
             return
 
         consumed_location = self.env["stock.location"].search([
-            ("location_id", "=", job_location.id),
             ("usage", "=", "production"),
+            ("name", "in", ["Job Order Consumed", "Inspection Consumed", "Consumption", "Production"]),
+            ("company_id", "in", [self._get_maintenance_company().id, False]),
         ], limit=1)
 
         if not consumed_location:
@@ -1581,7 +1582,10 @@ class AssetJobMaterialLine(models.Model):
             move.sudo().unlink()
             return
 
-        move.move_line_ids.write({"quantity": self.quantity_used})
+        move.move_line_ids.write({
+            "quantity": self.quantity_used,
+            "picked": True,
+        })
         move.sudo()._action_done()
 
         self.write({"approval_state": "consumed"})
