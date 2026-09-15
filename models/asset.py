@@ -47,6 +47,21 @@ class AccountAsset(models.Model):
         tracking=True,
         help="User responsible/owner for this asset.",
     )
+    employee_code = fields.Char(
+        string="Employee Code",
+        related="responsible_id.employee_id.employee_code",
+        store=True,
+        readonly=True,
+        help="Auto-fetched from the Responsible user's linked employee record.",
+    )
+
+    location_code = fields.Char(
+        string="Location Code",
+        related="location_id.code",
+        store=True,
+        readonly=True,
+        help="Auto-fetched from the selected Location.",
+    )
     customer_id = fields.Many2one(
         "res.partner",
         string="Customer / Company",

@@ -83,7 +83,9 @@
                     <group>
                         <field name="customer_id"/>
                         <field name="responsible_id" widget="many2one_avatar_user"/>
+                        <field name="employee_code" readonly="1" invisible="not employee_code"/>
                         <field name="location_id" options="{'no_create': True}"/>
+                        <field name="location_code" readonly="1" invisible="not location_code"/>
                         <field name="department_id" options="{'no_create': True}"/>
                         <!-- Physical only -->
                         <field name="qr_code"
