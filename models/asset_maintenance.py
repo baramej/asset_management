@@ -39,6 +39,13 @@ class AssetMaintenanceContract(models.Model):
         default=30,
     )
 
+    location_id = fields.Many2one(
+        "asset.location",
+        string="Location",
+        tracking=True,
+        help="Site/building/location this contract covers.",
+    )
+
     contract_type = fields.Selection([
         ("pm_only", "PM Only — Scheduled visits only"),
         ("pm_plus_corrective", "PM + Corrective — Visits, no parts"),
@@ -131,7 +138,6 @@ class AssetMaintenanceContract(models.Model):
             },
         }
 
-
     @api.depends("start_date", "end_date", "is_active", "renewal_reminder_days")
     def _compute_state(self):
         today = fields.Date.today()
@@ -194,7 +200,6 @@ class AssetMaintenanceContract(models.Model):
                 )
             )
 
-
     def get_coverage_summary(self):
         self.ensure_one()
         parts_label = {
@@ -204,7 +209,6 @@ class AssetMaintenanceContract(models.Model):
         }.get(self.parts_covered, "—")
         labour = "Labour included" if self.labour_covered else "Labour billed separately"
         return f"{labour} | {parts_label}"
-
 
     def action_activate(self):
         for rec in self:
@@ -560,16 +564,17 @@ class AssetContractServiceVisit(models.Model):
             },
         }
 
+
 class AssetContractVisitLabourLine(models.Model):
     _name = "asset.contract.visit.labour.line"
     _description = "Service Visit — Labour Line"
 
-    visit_id     = fields.Many2one("asset.contract.service.visit", required=True, ondelete="cascade")
-    technician   = fields.Char(string="Technician Name", required=True)
-    role         = fields.Char(string="Role / Skill")
-    hours        = fields.Float(string="Hours", default=1.0)
-    hourly_rate  = fields.Float(string="Rate / Hour")
-    subtotal     = fields.Float(compute="_compute_subtotal", store=True)
+    visit_id = fields.Many2one("asset.contract.service.visit", required=True, ondelete="cascade")
+    technician = fields.Char(string="Technician Name", required=True)
+    role = fields.Char(string="Role / Skill")
+    hours = fields.Float(string="Hours", default=1.0)
+    hourly_rate = fields.Float(string="Rate / Hour")
+    subtotal = fields.Float(compute="_compute_subtotal", store=True)
 
     @api.depends("hours", "hourly_rate")
     def _compute_subtotal(self):
@@ -581,12 +586,12 @@ class AssetContractVisitMaterialLine(models.Model):
     _name = "asset.contract.visit.material.line"
     _description = "Service Visit — Material Line"
 
-    visit_id     = fields.Many2one("asset.contract.service.visit", required=True, ondelete="cascade")
-    description  = fields.Char(string="Item / Material", required=True)
-    quantity     = fields.Float(default=1.0)
-    unit         = fields.Char(string="Unit", default="pcs")
-    unit_price   = fields.Float(string="Unit Price")
-    subtotal     = fields.Float(compute="_compute_subtotal", store=True)
+    visit_id = fields.Many2one("asset.contract.service.visit", required=True, ondelete="cascade")
+    description = fields.Char(string="Item / Material", required=True)
+    quantity = fields.Float(default=1.0)
+    unit = fields.Char(string="Unit", default="pcs")
+    unit_price = fields.Float(string="Unit Price")
+    subtotal = fields.Float(compute="_compute_subtotal", store=True)
 
     @api.depends("quantity", "unit_price")
     def _compute_subtotal(self):
@@ -1431,6 +1436,7 @@ class AssetMaintenanceTask(models.Model):
                 subtype_xmlid="mail.mt_note",
             )
 
+
 class AssetTaskAssignmentRule(models.Model):
     _name = "asset.task.assignment.rule"
     _description = "Automatic Task Assignment Rule"
@@ -1564,6 +1570,7 @@ class AssetTaskAssignmentRule(models.Model):
                 "sticky": False,
             },
         }
+
 
 class AssetMaintenancePlan(models.Model):
     _name = "asset.maintenance.plan"
@@ -1715,6 +1722,7 @@ class AssetContractSparePartWizardLine(models.TransientModel):
         ('preventive', 'Preventive'),
         ('corrective', 'Corrective'),
     ], string="Usage Type", default='preventive')
+
 
 class AssetMaintenanceTaskInspection(models.Model):
     _inherit = "asset.maintenance.task"
