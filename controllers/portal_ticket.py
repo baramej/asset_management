@@ -41,16 +41,10 @@ class HelpdeskPortalTicketController(http.Controller):
         return stage
 
     def _get_assets_for_user(self, company_id=None):
-        """Return all assets, optionally filtered by company."""
+        """Return all assets, optionally filtered by their accounting Company."""
         domain = []
         if company_id:
-            partners = request.env["res.partner"].sudo().search([
-                "|",
-                ("company_id", "=", company_id),
-                ("id", "=", company_id),  # partner IS the company
-            ])
-            if partners:
-                domain = [("customer_id", "in", partners.ids)]
+            domain = [("company_id", "=", company_id)]
         return request.env["account.asset"].sudo().search(
             domain, order="name asc"
         )
@@ -61,10 +55,13 @@ class HelpdeskPortalTicketController(http.Controller):
         user_company = user.company_id
         user_department = employee.department_id if employee else False
 
-        locations = request.env["asset.location"].sudo().search(
-            [("parent_id", "=", False), ("company_id", "=", user_company.id)],
-            order="name",
-        )
+        locations = request.env["asset.location"].sudo().search([
+            ("company_id", "=", user_company.id),
+            "|",
+            ("parent_id", "=", False),
+            ("parent_id.company_id", "!=", user_company.id),
+        ], order="name")
+
         job_categories = request.env["helpdesk.job.category"].sudo().search(
             [("active", "=", True)], order="sequence, name"
         )
