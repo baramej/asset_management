@@ -1,4 +1,3 @@
-
 from odoo import api, fields, models, _
 from datetime import timedelta
 
@@ -42,17 +41,17 @@ class AccountAsset(models.Model):
         help="Physical location of the asset",
     )
     responsible_id = fields.Many2one(
-        "res.users",
+        "hr.employee",
         string="Responsible",
         tracking=True,
-        help="User responsible/owner for this asset.",
+        help="Employee responsible/owner for this asset.",
     )
     employee_code = fields.Char(
         string="Employee Code",
-        related="responsible_id.employee_id.employee_code",
+        related="responsible_id.employee_code",
         store=True,
         readonly=True,
-        help="Auto-fetched from the Responsible user's linked employee record.",
+        help="Auto-fetched from the Responsible employee record.",
     )
 
     location_code = fields.Char(
@@ -171,6 +170,14 @@ class AccountAsset(models.Model):
         store=False,
         help="Live preview of the generated asset name",
     )
+    unit_quantity = fields.Integer(
+        string="Quantity",
+        default=1,
+        help="Number of identical physical units this record represents. "
+             "Use >1 only for bulk/interchangeable items (light fittings, "
+             "smoke detectors, etc.) that are not tracked or serviced individually. "
+             "Leave at 1 for uniquely maintained equipment (chillers, AHUs, pumps).",
+    )
     contract_line_ids = fields.One2many(
         "asset.maintenance.contract.line",
         "asset_id",
@@ -238,7 +245,6 @@ class AccountAsset(models.Model):
             asset.contract_count = ContractLine.search_count([
                 ("asset_id", "=", asset.id)
             ])
-
 
     def _short_code(self, text, length=4):
         if not text:
@@ -354,22 +360,34 @@ class AccountAsset(models.Model):
             if vals:
                 rec.write(vals)
 
+    is_auto_named = fields.Boolean(
+        string="Auto-Named",
+        default=True,
+        help="If enabled, the asset name is auto-generated from location/department/"
+             "category/code. Disabled automatically when a name is explicitly set "
+             "(e.g. via import) — edit the Name field directly instead.",
+    )
 
     @api.model_create_multi
     def create(self, vals_list):
+        explicit_name_flags = []
         for vals in vals_list:
+            had_explicit_name = bool(vals.get("name"))
+            explicit_name_flags.append(had_explicit_name)
+            if had_explicit_name:
+                vals.setdefault("is_auto_named", False)
             if not vals.get("name"):
                 temp_name = vals.get("asset_code") or vals.get("qr_code") or _("New Asset")
                 vals["name"] = temp_name
 
         assets = super(AccountAsset, self).create(vals_list)
 
-        for asset in assets:
+        for asset, had_name in zip(assets, explicit_name_flags):
             asset._apply_asset_model_template()
-            asset._generate_auto_name()
+            if not had_name:
+                asset._generate_auto_name()
 
         return assets
-
 
     def write(self, vals):
         res = super(AccountAsset, self).write(vals)
@@ -381,7 +399,8 @@ class AccountAsset(models.Model):
         watched = {"location_id", "department_id", "asset_category", "asset_code", "qr_code", "facility_code"}
         if any(f in vals for f in watched):
             for rec in self:
-                rec._generate_auto_name()
+                if rec.is_auto_named:
+                    rec._generate_auto_name()
 
         return res
 
@@ -500,7 +519,6 @@ class AccountAsset(models.Model):
             ("pm_frequency_days", ">", 0),
         ])
 
-
         for asset in assets:
             if asset.last_pm_date:
                 last_date = asset.last_pm_date
@@ -510,8 +528,6 @@ class AccountAsset(models.Model):
                 last_date = today - timedelta(days=asset.pm_frequency_days)
 
             due_date = last_date + timedelta(days=asset.pm_frequency_days)
-
-
 
             if due_date <= today:
                 task_vals = {
@@ -556,4 +572,3 @@ class AccountAsset(models.Model):
             "domain": [("asset_id", "=", self.id)],
             "context": {"default_asset_id": self.id},
         }
-

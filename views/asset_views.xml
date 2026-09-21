@@ -8,6 +8,7 @@
             <list>
                 <field name="asset_code"/>
                 <field name="name"/>
+                <field name="unit_quantity" sum="Total Units"/>
                 <field name="customer_id"/>
                 <field name="lifecycle_state"/>
                 <field name="location_id"/>
@@ -82,11 +83,12 @@
                 <group string="Asset Details">
                     <group>
                         <field name="customer_id"/>
-                        <field name="responsible_id" widget="many2one_avatar_user"/>
+                        <field name="responsible_id" widget="many2one_avatar_employee"/>
                         <field name="employee_code" readonly="1" invisible="not employee_code"/>
                         <field name="location_id" options="{'no_create': True}"/>
                         <field name="location_code" readonly="1" invisible="not location_code"/>
                         <field name="department_id" options="{'no_create': True}"/>
+                        <field name="unit_quantity"/>
                         <!-- Physical only -->
                         <field name="qr_code"
                                invisible="asset_type != 'physical'"/>
@@ -601,7 +603,7 @@
                         <group string="Default Asset Details">
                             <group>
                                 <field name="customer_id"/>
-                                <field name="responsible_id" widget="many2one_avatar_user"/>
+                                <field name="responsible_id" widget="many2one_avatar_employee"/>
                                 <field name="location_id" options="{'no_create': True}"/>
                                 <field name="department_id" options="{'no_create': True}"/>
                             </group>
