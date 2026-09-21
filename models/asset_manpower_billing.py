@@ -139,11 +139,11 @@ class ManpowerImportBatch(models.Model):
 
         # Find header row (contains "Employee Code")
         header_row = None
-        col_emp = col_date = col_atsecn = None
+        col_emp = col_date = col_dept = None
         for row in ws.iter_rows():
             for cell in row:
                 if cell.value and str(cell.value).strip().lower() in (
-                    "employee code", "employee_code", "emp code", "emp_code"
+                        "employee code", "employee_code", "emp code", "emp_code"
                 ):
                     header_row = cell.row
                     col_emp = cell.column
@@ -163,14 +163,14 @@ class ManpowerImportBatch(models.Model):
             val = str(cell.value).strip().lower()
             if val in ("sh date", "shift date", "shdate", "date"):
                 col_date = cell.column
-            elif val in ("atsecn", "company code", "company_code", "atsecn code"):
-                col_atsecn = cell.column
+            elif val in ("dept code", "department code", "dept_code", "deptcode"):
+                col_dept = cell.column
 
-        if not col_date or not col_atsecn:
+        if not col_date or not col_dept:
             raise UserError(_(
-                "Could not find 'Sh date' or 'ATSECN' columns. "
-                "Found Employee Code at col %s, Date at col %s, ATSECN at col %s."
-            ) % (col_emp, col_date, col_atsecn))
+                "Could not find 'Sh date' or 'Dept Code' columns. "
+                "Found Employee Code at col %s, Date at col %s, Dept Code at col %s."
+            ) % (col_emp, col_date, col_dept))
 
         # Delete existing raw lines and summaries
         self.raw_line_ids.unlink()
@@ -181,13 +181,13 @@ class ManpowerImportBatch(models.Model):
         for row in ws.iter_rows(min_row=header_row + 1, values_only=True):
             emp_code = row[col_emp - 1]
             shift_date_raw = row[col_date - 1]
-            atsecn = row[col_atsecn - 1]
+            dept_code = row[col_dept - 1]
 
-            if not emp_code or not shift_date_raw or not atsecn:
+            if not emp_code or not shift_date_raw or not dept_code:
                 continue
 
             emp_code = str(int(emp_code)) if isinstance(emp_code, float) else str(emp_code).strip()
-            atsecn = str(atsecn).strip()
+            dept_code = str(dept_code).strip()
 
             # Parse date — handles dd.mm.yyyy or standard formats
             if isinstance(shift_date_raw, (date,)):
@@ -211,7 +211,7 @@ class ManpowerImportBatch(models.Model):
                 "batch_id": self.id,
                 "employee_code": emp_code,
                 "shift_date": shift_date,
-                "atsecn": atsecn,
+                "dept_code": dept_code,
             })
 
         if not raw_vals:
@@ -229,30 +229,28 @@ class ManpowerImportBatch(models.Model):
         )
 
     def _build_summaries(self):
-        """Aggregate raw lines into per-company summary records."""
+        """Aggregate raw lines into per-department summary records."""
         self.ensure_one()
 
         config = self.env["manpower.billing.config"].search([], limit=1)
         daily_rate = config.default_daily_rate if config else 250.0
         working_days = config.working_days_per_month if config else 30
 
-        # Group by ATSECN
+        # Group by Department Code
         groups = {}
         for line in self.raw_line_ids:
-            key = line.atsecn
+            key = line.dept_code
             if key not in groups:
                 groups[key] = {"mandays": 0, "employees": set()}
             groups[key]["mandays"] += 1
             groups[key]["employees"].add(line.employee_code)
 
         summary_vals = []
-        for atsecn, data in groups.items():
-            # Try to find partner by company_registry or ref
-            partner = self.env["res.partner"].search([
-                "|",
-                ("company_registry", "=", atsecn),
-                ("ref", "=", atsecn),
-            ], limit=1)
+        for dept_code, data in groups.items():
+            department = self.env["hr.department"].search(
+                [("code", "=", dept_code)], limit=1
+            )
+            partner = department.invoicing_partner_id if department else False
 
             mandays = data["mandays"]
             emp_count = len(data["employees"])
@@ -261,7 +259,7 @@ class ManpowerImportBatch(models.Model):
 
             summary_vals.append({
                 "batch_id": self.id,
-                "atsecn": atsecn,
+                "dept_code": dept_code,
                 "partner_id": partner.id if partner else False,
                 "total_mandays": mandays,
                 "unique_employees": emp_count,
@@ -303,19 +301,25 @@ class ManpowerImportBatch(models.Model):
 class ManpowerImportLine(models.Model):
     _name = "manpower.import.line"
     _description = "Manpower Attendance Raw Line"
-    _order = "atsecn, shift_date, employee_code"
+    _order = "dept_code, shift_date, employee_code"
 
     batch_id = fields.Many2one(
         "manpower.import.batch", required=True, ondelete="cascade"
     )
     employee_code = fields.Char(string="Employee Code", required=True)
     shift_date = fields.Date(string="Shift Date", required=True)
-    atsecn = fields.Char(string="ATSECN (Company Code)", required=True)
+    dept_code = fields.Char(string="Department Code", required=True)
 
     # Resolved fields
+    department_id = fields.Many2one(
+        "hr.department",
+        string="Department",
+        compute="_compute_department",
+        store=True,
+    )
     partner_id = fields.Many2one(
         "res.partner",
-        string="Company",
+        string="Invoicing Company",
         compute="_compute_partner",
         store=True,
     )
@@ -326,15 +330,17 @@ class ManpowerImportLine(models.Model):
         store=True,
     )
 
-    @api.depends("atsecn")
+    @api.depends("dept_code")
+    def _compute_department(self):
+        for rec in self:
+            rec.department_id = self.env["hr.department"].search(
+                [("code", "=", rec.dept_code)], limit=1
+            )
+
+    @api.depends("department_id", "department_id.invoicing_partner_id")
     def _compute_partner(self):
         for rec in self:
-            partner = self.env["res.partner"].search([
-                "|",
-                ("company_registry", "=", rec.atsecn),
-                ("ref", "=", rec.atsecn),
-            ], limit=1)
-            rec.partner_id = partner
+            rec.partner_id = rec.department_id.invoicing_partner_id
 
     @api.depends("employee_code")
     def _compute_employee(self):
@@ -344,7 +350,6 @@ class ManpowerImportLine(models.Model):
             ], limit=1)
             rec.employee_id = emp
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Billing Summary — one per company per batch
 # ─────────────────────────────────────────────────────────────────────────────
@@ -352,7 +357,7 @@ class ManpowerImportLine(models.Model):
 class ManpowerBillingSummary(models.Model):
     _name = "manpower.billing.summary"
     _description = "Manpower Billing Summary (per Company per Batch)"
-    _order = "period_year desc, period_month desc, atsecn"
+    _order = "period_year desc, period_month desc, dept_code"
     _inherit = ["mail.thread"]
 
     batch_id = fields.Many2one(
@@ -369,11 +374,10 @@ class ManpowerBillingSummary(models.Model):
         string="Period", compute="_compute_period_label", store=True
     )
 
-    atsecn = fields.Char(string="ATSECN Code", required=True)
+    dept_code = fields.Char(string="Department Code", required=True)
     partner_id = fields.Many2one(
-        "res.partner", string="Company / Client", tracking=True
+        "res.partner", string="Invoicing Company", tracking=True
     )
-
     # ── Manpower Figures ──────────────────────────────────────────────────────
     total_mandays = fields.Integer(string="Total Mandays", readonly=True)
     unique_employees = fields.Integer(string="Unique Employees", readonly=True)
@@ -467,14 +471,14 @@ class ManpowerBillingSummary(models.Model):
         self.ensure_one()
         return {
             "name": _("Attendance Lines — %s / %s") % (
-                self.atsecn, self.period_label
+                self.dept_code, self.period_label
             ),
             "type": "ir.actions.act_window",
             "res_model": "manpower.import.line",
             "view_mode": "list",
             "domain": [
                 ("batch_id", "=", self.batch_id.id),
-                ("atsecn", "=", self.atsecn),
+                ("dept_code", "=", self.dept_code),
             ],
         }
 
@@ -483,8 +487,9 @@ class ManpowerBillingSummary(models.Model):
         self.ensure_one()
         if not self.partner_id:
             raise UserError(_(
-                "Please link a Company (partner) to ATSECN '%s' before creating an invoice."
-            ) % self.atsecn)
+                 "Please set an Invoicing Company on the Department with code '%s' "
+            "before creating an invoice."
+            ) % self.dept_code)
         return {
             "name": _("Create Manpower Invoice"),
             "type": "ir.actions.act_window",
@@ -502,7 +507,7 @@ class ManpowerBillingSummary(models.Model):
     def action_view_invoices(self):
         self.ensure_one()
         return {
-            "name": _("Invoices — %s") % self.atsecn,
+            "name": _("Invoices — %s") % self.dept_code,
             "type": "ir.actions.act_window",
             "res_model": "account.move",
             "view_mode": "list,form",
@@ -635,7 +640,7 @@ class ManpowerInvoiceWizard(models.TransientModel):
             )
 
             description_parts = [
-                f"Manpower Charge — {s.period_label} — {s.atsecn}",
+                f"Manpower Charge — {s.period_label} — {s.dept_code}",
                 f"Mandays: {s.total_mandays}  |  Employees: {s.unique_employees}  |  "
                 f"Equiv. FTE: {s.employee_equivalent:.2f}",
                 f"Rate: {rate:.3f} / day  ×  {wd} working days/month  =  {amount:.3f}",

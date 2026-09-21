@@ -218,3 +218,9 @@ class HrDepartment(models.Model):
     _inherit = "hr.department"
 
     code = fields.Char(string="Code", help="Short code for this department, e.g. IT, HR, FIN")
+    invoicing_partner_id = fields.Many2one(
+        "res.partner",
+        string="Invoicing Company",
+        help="Customer/company to bill when manpower attendance is imported "
+             "under this department's code.",
+    )
