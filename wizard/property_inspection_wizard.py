@@ -103,5 +103,6 @@ class PropertyInspectionWizard(models.TransientModel):
                 "title": _("Inspection Ticket Created"),
                 "message": _("Ticket %s has been created.", ticket.name),
                 "sticky": False,
+                "next": {"type": "ir.actions.act_window_close"},
             },
         }
