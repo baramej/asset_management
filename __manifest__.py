@@ -55,6 +55,7 @@
         'data/helpdesk_job_categories.xml',
         'views/portal_ticket_form.xml',
         'views/asset_portal_company_views.xml',
+        'views/res_config_settings_views.xml',
         'views/portal_employee_signup_templates.xml',
         'views/hr_employee_portal_views.xml',
         "data/asset_pm_cron.xml",
