@@ -86,7 +86,7 @@
                                         <div class="col-md-6 mb-3 mb-md-0">
                                             <label class="form-label fw-bold">Company</label>
                                             <input type="text" class="form-control" disabled="disabled"
-                                                   t-att-value="user_company.name if user_company else ''"/>
+                                                   t-att-value="display_company_name or ''"/>
                                             <!-- Server always recomputes this from the logged-in user; hidden field kept only for UX round-trip -->
                                             <input type="hidden" name="company_id"
                                                    t-att-value="user_company.id if user_company else ''"/>
@@ -272,7 +272,7 @@
                                                         <strong>
                                                             <t t-out="manager.name"/>
                                                         </strong>
-                                                        (<t t-out="manager.email"/>) for approval.
+                                                        (<t t-out="manager_email"/>) for approval.
                                                     </span>
                                                 </t>
                                                 <t t-else="">

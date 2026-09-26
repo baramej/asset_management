@@ -78,6 +78,12 @@ class HelpdeskTicket(models.Model):
 
     approval_access_token = fields.Char(string="Approval Token", copy=False, readonly=True)
     manager_id = fields.Many2one("res.users", string="Employee Manager", readonly=True)
+    manager_employee_id = fields.Many2one(
+        "hr.employee", string="Approving Manager", readonly=True,
+        help="Requester's manager (hr.employee.parent_id). The manager does not "
+        "need an Odoo login: the approval link is emailed to them.",
+    )
+    manager_email = fields.Char(string="Manager Email", readonly=True)
 
     def action_debug_approval(self):
         """Temporary debug button — remove after fixing."""
@@ -131,45 +137,57 @@ class HelpdeskTicket(models.Model):
                 ticket.cafm_ticket_id = cafm.id
 
             # Manager approval logic
-            manager = ticket._get_employee_manager()
-            if manager and manager.email:
+            manager = ticket._get_manager_employee()
+            email = self._manager_email_of(manager)
+            if email:
                 token = str(_uuid.uuid4())
                 ticket.write({
                     "manager_approval_state": "waiting_manager_approval",
                     "approval_access_token": token,
-                    "manager_id": manager.id,
+                    "manager_id": manager.user_id.id or False,
+                    "manager_employee_id": manager.id,
+                    "manager_email": email,
                     "stage_id": ticket._get_waiting_approval_stage().id,
                 })
-                ticket._send_manager_approval_email(manager, token)
+                ticket._send_manager_approval_email(manager.name, email, token)
 
         return tickets
 
-    def _get_employee_manager(self):
+    def _get_requester_employee(self):
+        """hr.employee behind the ticket's customer (portal user first)."""
         self.ensure_one()
-
-        # Try partner first, fall back to ticket creator (for backend-created tickets)
         partner = self.partner_id or self.env.user.partner_id
-
-        employee = self.env["hr.employee"].sudo().search(
-            [("work_email", "=", partner.email)], limit=1
-        )
+        Employee = self.env["hr.employee"].sudo()
+        employee = Employee.browse()
+        for user in partner.user_ids:
+            employee = user._asset_portal_employee()
+            if employee:
+                break
         if not employee:
-            employee = self.env["hr.employee"].sudo().search(
-                [("user_id.partner_id", "=", partner.id)], limit=1
-            )
-        # Last resort: match by the ticket's assigned user
+            employee = Employee.search([("work_contact_id", "=", partner.id)], limit=1)
+        if not employee and partner.email:
+            employee = Employee.search([("work_email", "=ilike", partner.email)], limit=1)
+        # Last resort: match by the ticket's assigned user (backend tickets)
         if not employee and self.user_id:
-            employee = self.env["hr.employee"].sudo().search(
-                [("user_id", "=", self.user_id.id)], limit=1
-            )
+            employee = Employee.search([("user_id", "=", self.user_id.id)], limit=1)
+        return employee
 
-        if not employee:
-            return False
-        if not employee.parent_id:
-            return False
+    def _get_manager_employee(self):
+        """Requester's manager as hr.employee (may have no Odoo user)."""
+        self.ensure_one()
+        return self._get_requester_employee().parent_id
 
-        manager_user = employee.parent_id.user_id
-        return manager_user if manager_user and manager_user.email else False
+    @api.model
+    def _manager_email_of(self, manager):
+        if not manager:
+            return False
+        return manager.work_email or manager.user_id.email or False
+
+    def _get_employee_manager(self):
+        """Kept for compatibility: the manager's res.users, if they have one."""
+        self.ensure_one()
+        user = self._get_manager_employee().user_id
+        return user if user and user.email else False
 
     def _get_waiting_approval_stage(self):
         """Get or create a 'Waiting Manager Approval' stage."""
@@ -184,7 +202,7 @@ class HelpdeskTicket(models.Model):
             })
         return stage
 
-    def _send_manager_approval_email(self, manager_user, token):
+    def _send_manager_approval_email(self, manager_name, manager_email, token):
         self.ensure_one()
         base_url = self.env["ir.config_parameter"].sudo().get_param("web.base.url", "")
         approval_url = f"{base_url}/helpdesk/ticket/{self.id}/manager-review?token={token}"
@@ -197,7 +215,7 @@ class HelpdeskTicket(models.Model):
                 <h2 style="color:#ffffff;margin:0;">Helpdesk Ticket — Manager Approval Required</h2>
             </div>
             <div style="padding:24px 32px;background-color:#ffffff;">
-                <p style="color:#333;font-size:15px;">Dear {manager_user.name},</p>
+                <p style="color:#333;font-size:15px;">Dear {manager_name},</p>
                 <p style="color:#333;font-size:15px;">
                     <strong>{employee_name}</strong> has submitted a helpdesk ticket that requires your approval
                     before it is processed by the support team.
@@ -244,7 +262,7 @@ class HelpdeskTicket(models.Model):
         self.env["mail.mail"].sudo().create({
             "subject": f"Approval Required — Helpdesk Ticket: {self.name}",
             "body_html": body_html,
-            "email_to": manager_user.email,
+            "email_to": manager_email,
             "author_id": self.env.user.partner_id.id,
             "auto_delete": False,
             "state": "outgoing",
@@ -254,8 +272,8 @@ class HelpdeskTicket(models.Model):
             body=_(
                 "Manager approval email sent to <b>%(name)s</b> (%(email)s). "
                 "Ticket is pending approval.",
-                name=manager_user.name,
-                email=manager_user.email,
+                name=manager_name,
+                email=manager_email,
             ),
             subtype_xmlid="mail.mt_note",
         )
@@ -271,7 +289,8 @@ class HelpdeskTicket(models.Model):
             vals["stage_id"] = new_stage.id
         self.write(vals)
         self.message_post(
-            body=_("Ticket approved by manager <b>%s</b>. Moved to New.") % self.manager_id.name
+            body=_("Ticket approved by manager <b>%s</b>. Moved to New.")
+            % (self.manager_employee_id.name or self.manager_id.name)
         )
 
     def action_manager_deny(self, reason=""):
@@ -291,7 +310,7 @@ class HelpdeskTicket(models.Model):
         self.message_post(
             body=_(
                 "Ticket denied by manager <b>%(manager)s</b>. Reason: %(reason)s",
-                manager=self.manager_id.name,
+                manager=self.manager_employee_id.name or self.manager_id.name,
                 reason=reason or "—",
             )
         )

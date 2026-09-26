@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="asset_portal_company_view_list" model="ir.ui.view">
+        <field name="name">asset.portal.company.list</field>
+        <field name="model">asset.portal.company</field>
+        <field name="arch" type="xml">
+            <list string="Portal Companies" editable="bottom">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="code"/>
+                <field name="company_id"/>
+                <field name="portal_full_access" widget="boolean_toggle"/>
+                <field name="employee_count" string="Employees"/>
+                <field name="active" column_invisible="True"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="asset_portal_company_view_form" model="ir.ui.view">
+        <field name="name">asset.portal.company.form</field>
+        <field name="model">asset.portal.company</field>
+        <field name="arch" type="xml">
+            <form string="Portal Company">
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_employees" type="object"
+                                class="oe_stat_button" icon="fa-users">
+                            <field name="employee_count" widget="statinfo" string="Employees"/>
+                        </button>
+                    </div>
+                    <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>
+                    <group>
+                        <group>
+                            <field name="name" placeholder="e.g. Auto Arab"/>
+                            <field name="code" placeholder="e.g. AA"/>
+                        </group>
+                        <group>
+                            <field name="company_id"/>
+                            <field name="portal_full_access"/>
+                            <field name="active" invisible="1"/>
+                        </group>
+                    </group>
+                    <div class="text-muted">
+                        Employees pick <b>Company</b> on the portal sign-up. Their user and
+                        employee record are created under the <b>Default Company</b>, and the
+                        <b>Company Code</b> is used as their employee-code prefix and to look
+                        them up in the legacy HR system.
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="asset_portal_company_view_search" model="ir.ui.view">
+        <field name="name">asset.portal.company.search</field>
+        <field name="model">asset.portal.company</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="code"/>
+                <field name="company_id"/>
+                <filter name="archived" string="Archived" domain="[('active', '=', False)]"/>
+                <filter name="groupby_company" string="Default Company" context="{'group_by': 'company_id'}"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_asset_portal_company" model="ir.actions.act_window">
+        <field name="name">Portal Companies</field>
+        <field name="res_model">asset.portal.company</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Add the companies employees can choose on the portal</p>
+            <p>For example "Auto Arab", code "AA", created under SBA.</p>
+        </field>
+    </record>
+
+    <menuitem id="menu_asset_portal_company"
+              name="Portal Companies"
+              parent="menu_asset_mgmt_config"
+              action="action_asset_portal_company"
+              sequence="90"/>
+</odoo>

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Employees: Actual Company (e.g. Auto Arab) next to the Odoo company (e.g. SBA).
+         The employee FORM is deliberately not inherited here: on this server the
+         stock hr form fails validation (version_revision). -->
+    <record id="hr_employee_view_search_portal_signup" model="ir.ui.view">
+        <field name="name">hr.employee.search.portal.signup</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_filter"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='department_id']" position="after">
+                <field name="portal_company_id"/>
+            </xpath>
+            <xpath expr="//search" position="inside">
+                <separator/>
+                <filter name="portal_self_registered" string="Portal Self-Registered"
+                        domain="[('portal_self_registered', '=', True)]" groups="hr.group_hr_user"/>
+                <filter name="groupby_portal_company" string="Actual Company"
+                        context="{'group_by': 'portal_company_id'}"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="hr_employee_view_list_portal_company" model="ir.ui.view">
+        <field name="name">hr.employee.list.portal.company</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='name']" position="after">
+                <field name="portal_company_id" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

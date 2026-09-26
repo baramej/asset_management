@@ -66,6 +66,8 @@
                                decoration-success="manager_approval_state == 'approved'"
                                decoration-danger="manager_approval_state == 'denied'"/>
                         <field name="manager_id" readonly="1" invisible="not manager_id"/>
+                        <field name="manager_employee_id" readonly="1" invisible="not manager_employee_id"/>
+                        <field name="manager_email" readonly="1" invisible="not manager_email"/>
                         <field name="maintenance_task_id"
                                readonly="1"
                                invisible="maintenance_task_id == False"/>

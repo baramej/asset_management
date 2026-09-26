@@ -19,3 +19,4 @@ from . import flat_checklist
 from . import asset_rca
 from . import asset_manpower_billing
 from . import helpdesk_portal_ticket
+from . import portal_employee_link

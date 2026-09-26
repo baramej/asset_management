@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Reusable block: company / employee code / manager code -->
+    <template id="portal_employee_fields" name="Portal Employee Identification Fields">
+        <t t-set="selected_company" t-value="str(employee_company_id or '')"/>
+        <div class="mb-3 field-employee_company_id">
+            <label for="employee_company_id" class="form-label">Company</label>
+            <select name="employee_company_id" id="employee_company_id" class="form-select" required="required">
+                <option value="">Select your company…</option>
+                <t t-foreach="employee_companies or []" t-as="comp">
+                    <option t-att-value="comp['id']"
+                            t-att-data-code="comp['code']"
+                            t-att-selected="str(comp['id']) == selected_company">
+                        <t t-out="comp['name']"/>
+                        <t t-if="comp['code']"> (<t t-out="comp['code']"/>)</t>
+                    </option>
+                </t>
+            </select>
+        </div>
+        <div class="mb-3 field-employee_code">
+            <label for="employee_code" class="form-label">Employee Code</label>
+            <input type="text" name="employee_code" id="employee_code" class="form-control"
+                   t-att-value="employee_code" required="required" autocapitalize="characters"
+                   placeholder="e.g. 78723 or AA78723"/>
+            <small class="form-text text-muted">Your code as it appears in HR, with or without the company letter.</small>
+        </div>
+        <div class="mb-3 field-manager_code">
+            <label for="manager_code" class="form-label">Manager's Employee Code <span class="text-muted fw-normal">(optional)</span></label>
+            <input type="text" name="manager_code" id="manager_code" class="form-control"
+                   t-att-value="manager_code" autocapitalize="characters"/>
+            <small class="form-text text-muted">Only used if HR has not assigned you a manager yet.</small>
+        </div>
+    </template>
+
+    <!-- Add the block to the public sign-up form -->
+    <template id="auth_signup_employee_fields" inherit_id="auth_signup.signup"
+              name="Sign up: employee identification">
+        <xpath expr="//div[hasclass('field-login')]" position="after">
+            <t t-if="employee_companies">
+                <t t-call="asset_management.portal_employee_fields"/>
+            </t>
+        </xpath>
+    </template>
+
+    <!-- Page for existing portal users with no employee link -->
+    <template id="portal_employee_link" name="Link Your Employee Record">
+        <t t-call="portal.portal_layout">
+            <div class="container mt-4 mb-5">
+                <div class="row justify-content-center">
+                    <div class="col-lg-6">
+                        <div class="card shadow-sm border-0">
+                            <div class="card-header py-3"
+                                 style="background: linear-gradient(135deg,#1a1a2e,#16213e); color:#fff;">
+                                <h5 class="mb-0"><i class="fa fa-id-badge me-2"/>Confirm your employee details</h5>
+                                <small style="opacity:0.75">We need these once so your requests reach your manager.</small>
+                            </div>
+                            <div class="card-body p-4">
+                                <form method="post" action="/my/employee/link">
+                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                    <input type="hidden" name="redirect" t-att-value="redirect"/>
+                                    <t t-set="employee_company_id" t-value="post.get('employee_company_id')"/>
+                                    <t t-set="employee_code" t-value="post.get('employee_code')"/>
+                                    <t t-set="manager_code" t-value="post.get('manager_code')"/>
+                                    <t t-call="asset_management.portal_employee_fields"/>
+                                    <p class="alert alert-danger" t-if="error" role="alert">
+                                        <t t-out="error"/>
+                                    </p>
+                                    <div class="d-flex justify-content-end">
+                                        <button type="submit" class="btn btn-primary px-4">Continue</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+</odoo>
