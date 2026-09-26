@@ -151,6 +151,66 @@ class HrEmployee(models.Model):
         ]
 
     # ------------------------------------------------------------------ #
+    # Occupy wizard "Sync": accept portal company codes too
+    # ------------------------------------------------------------------ #
+    @api.model
+    def _asset_portal_company_for_code(self, company_code):
+        code = _clean_code(company_code)
+        if not code:
+            return self.env["asset.portal.company"]
+        return self.env["asset.portal.company"].sudo().search(
+            [("code", "=", code)], limit=1
+        )
+
+    @api.model
+    def _upsert_from_legacy(self, company_code, employee_code):
+        """Let the Occupy wizard sync employees of portal companies.
+
+        A code like "AA" (Auto Arab) belongs to a Portal Company rather than
+        an Odoo company: the employee is found/created under its Default
+        Company (e.g. SBA) and tagged with Auto Arab as Actual Company. Codes
+        set on an Odoo company keep working exactly as before.
+        """
+        portal_company = self._asset_portal_company_for_code(company_code)
+        if not portal_company:
+            return super()._upsert_from_legacy(company_code, employee_code)
+        employee = super(
+            HrEmployee, self.with_context(asset_portal_company_id=portal_company.id)
+        )._upsert_from_legacy(
+            portal_company.code,
+            self._asset_portal_canonical_code(portal_company, employee_code),
+        )
+        if not employee.portal_company_id:
+            employee.sudo().portal_company_id = portal_company
+        return employee
+
+    @api.model
+    def _company_for_legacy_code(self, company_code):
+        portal_company_id = self.env.context.get("asset_portal_company_id")
+        if portal_company_id:
+            return self.env["asset.portal.company"].sudo().browse(portal_company_id).company_id
+        portal_company = self._asset_portal_company_for_code(company_code)
+        if portal_company:
+            return portal_company.company_id
+        return super()._company_for_legacy_code(company_code)
+
+    @api.model
+    def _find_by_legacy_key(self, company, employee_code):
+        """Several entities share one Odoo company (SBA), so the same number
+        may exist twice: only match the employee of the chosen entity."""
+        portal_company_id = self.env.context.get("asset_portal_company_id")
+        if not portal_company_id:
+            return super()._find_by_legacy_key(company, employee_code)
+        portal_company = self.env["asset.portal.company"].sudo().browse(portal_company_id)
+        employees = self.with_context(active_test=False).sudo().search([
+            ("employee_code", "in", self._asset_portal_code_variants(portal_company, employee_code)),
+            ("company_id", "=", company.id),
+        ]).filtered(lambda e: e._asset_portal_belongs_to(portal_company))
+        exact = employees.filtered(lambda e: e.portal_company_id == portal_company)
+        return (exact or employees)[:1]
+
+
+    # ------------------------------------------------------------------ #
     # Code matching
     # ------------------------------------------------------------------ #
     @api.model
