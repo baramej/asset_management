@@ -227,6 +227,37 @@ class HelpdeskPortalTicketController(http.Controller):
 
         return request.redirect("/my/tickets/submitted")
 
+    # ── My Service Requests ───────────────────────────────────────────────────
+
+    def _my_service_requests(self, user):
+        """Tickets this portal user raised. Read with sudo on purpose: Helpdesk's
+        own portal only shows tickets the user follows on portal-visible teams."""
+        return request.env["helpdesk.ticket"].sudo().search(
+            [("partner_id", "=", user.partner_id.id)], order="create_date desc"
+        )
+
+    @http.route("/my/service-requests", auth="user", website=True)
+    def portal_my_service_requests(self, **kwargs):
+        tickets = self._my_service_requests(request.env.user)
+        return request.render("asset_management.portal_my_service_requests", {
+            "tickets": tickets,
+            "page_name": "service_requests",
+        })
+
+    @http.route("/my/service-requests/<int:ticket_id>", auth="user", website=True)
+    def portal_my_service_request(self, ticket_id, **kwargs):
+        ticket = self._my_service_requests(request.env.user).filtered(
+            lambda t: t.id == ticket_id
+        )
+        if not ticket:
+            return request.redirect("/my/service-requests")
+        return request.render("asset_management.portal_my_service_request", {
+            "ticket": ticket,
+            "line": ticket.portal_line_ids[:1],
+            "page_name": "service_requests",
+        })
+
+
     @http.route("/my/tickets/submitted", auth="user", website=True)
     def portal_ticket_submitted(self, **kwargs):
         return request.render(

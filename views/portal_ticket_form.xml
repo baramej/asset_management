@@ -591,7 +591,150 @@
                     </span>
                 </a>
             </div>
+            <t t-set="my_request_count"
+               t-value="request.env['helpdesk.ticket'].sudo().search_count([('partner_id', '=', request.env.user.partner_id.id)])"/>
+            <div class="col-lg-6 col-md-6 col-sm-6 col-xs-12 mb-3">
+                <a href="/my/service-requests"
+                   class="o_portal_doc_item o_portal_ticket_tile d-flex align-items-center p-3 rounded shadow-sm text-decoration-none">
+                    <span class="o_portal_doc_icon d-flex align-items-center justify-content-center rounded-circle me-3 flex-shrink-0"
+                          style="width:48px;height:48px;background-color:#e7f1ff;">
+                        <i class="fa fa-list-alt fa-lg" style="color:#714B67;"/>
+                    </span>
+                    <span class="flex-grow-1">
+                        <span class="o_portal_doc_name d-block fw-bold text-dark">My Service Requests</span>
+                        <small class="text-muted">Track the requests you have submitted</small>
+                    </span>
+                    <span class="badge rounded-pill text-bg-secondary ms-2" t-out="my_request_count"/>
+                </a>
+            </div>
         </xpath>
     </template>
+    <!-- ── My Service Requests: list ───────────────────────────────────────── -->
+    <template id="portal_my_service_requests" name="My Service Requests">
+        <t t-call="portal.portal_layout">
+            <div class="container mt-4 mb-5">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h4 class="mb-0">My Service Requests</h4>
+                    <a href="/my/tickets/new" class="btn btn-primary">
+                        <i class="fa fa-plus me-1"/>New Request
+                    </a>
+                </div>
+                <t t-if="not tickets">
+                    <div class="alert alert-info">You have not submitted any service requests yet.</div>
+                </t>
+                <div t-else="" class="table-responsive">
+                    <table class="table table-hover align-middle bg-white shadow-sm rounded">
+                        <thead class="table-light">
+                            <tr>
+                                <th>#</th>
+                                <th>Subject</th>
+                                <th>Submitted</th>
+                                <th>Approval</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr t-foreach="tickets" t-as="ticket">
+                                <td>
+                                    <a t-attf-href="/my/service-requests/{{ ticket.id }}">#
+                                        <t t-out="ticket.id"/>
+                                    </a>
+                                </td>
+                                <td>
+                                    <a t-attf-href="/my/service-requests/{{ ticket.id }}" t-out="ticket.name"/>
+                                </td>
+                                <td>
+                                    <span t-field="ticket.create_date" t-options="{'widget': 'date'}"/>
+                                </td>
+                                <td>
+                                    <span t-if="ticket.manager_approval_state == 'waiting_manager_approval'"
+                                          class="badge text-bg-warning">Waiting for manager
+                                    </span>
+                                    <span t-elif="ticket.manager_approval_state == 'approved'"
+                                          class="badge text-bg-success">Approved
+                                    </span>
+                                    <span t-elif="ticket.manager_approval_state == 'denied'"
+                                          class="badge text-bg-danger">Denied
+                                    </span>
+                                    <span t-else="" class="text-muted">—</span>
+                                </td>
+                                <td>
+                                    <span class="badge text-bg-light border" t-out="ticket.stage_id.name"/>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </t>
+    </template>
 
+    <!-- ── My Service Requests: detail ─────────────────────────────────────── -->
+    <template id="portal_my_service_request" name="My Service Request">
+        <t t-call="portal.portal_layout">
+            <div class="container mt-4 mb-5">
+                <a href="/my/service-requests" class="btn btn-link px-0 mb-2">
+                    <i class="fa fa-arrow-left me-1"/>My Service Requests
+                </a>
+                <div class="card shadow-sm border-0">
+                    <div class="card-header py-3 d-flex justify-content-between align-items-center"
+                         style="background: linear-gradient(135deg,#1a1a2e,#16213e); color:#fff;">
+                        <h5 class="mb-0">#
+                            <t t-out="ticket.id"/>
+                            —
+                            <t t-out="ticket.name"/>
+                        </h5>
+                        <span class="badge text-bg-light" t-out="ticket.stage_id.name"/>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p class="mb-2">
+                                    <strong>Submitted:</strong>
+                                    <span t-field="ticket.create_date"/>
+                                </p>
+                                <p class="mb-2">
+                                    <strong>Approval:</strong>
+                                    <t t-if="ticket.manager_approval_state == 'waiting_manager_approval'">Waiting for
+                                        manager
+                                    </t>
+                                    <t t-elif="ticket.manager_approval_state == 'approved'">Approved</t>
+                                    <t t-elif="ticket.manager_approval_state == 'denied'">Denied</t>
+                                    <t t-else="">—</t>
+                                </p>
+                                <p class="mb-2" t-if="ticket.manager_employee_id">
+                                    <strong>Manager:</strong>
+                                    <t t-out="ticket.manager_employee_id.name"/>
+                                </p>
+                            </div>
+                            <div class="col-md-6">
+                                <p class="mb-2" t-if="line.job_category_id">
+                                    <strong>Job Category:</strong>
+                                    <t t-out="line.job_category_id.name"/>
+                                </p>
+                                <p class="mb-2" t-if="line.location_id">
+                                    <strong>Location:</strong>
+                                    <t t-out="line.location_id.name"/>
+                                    <t t-if="line.sublocation_id">/
+                                        <t t-out="line.sublocation_id.name"/>
+                                    </t>
+                                </p>
+                                <p class="mb-2" t-if="line.building">
+                                    <strong>Building / Unit:</strong>
+                                    <t t-out="line.building"/>
+                                </p>
+                                <p class="mb-2" t-if="ticket.asset_id">
+                                    <strong>Asset:</strong>
+                                    <t t-out="ticket.asset_id.name"/>
+                                </p>
+                            </div>
+                        </div>
+                        <hr/>
+                        <h6 class="fw-bold">Description</h6>
+                        <div t-field="ticket.description"/>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
 </odoo>
