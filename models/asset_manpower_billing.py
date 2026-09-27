@@ -670,9 +670,10 @@ class ManpowerInvoiceWizard(models.TransientModel):
         for s in summaries:
             s.invoice_ids = [(4, invoice.id)]
 
-        summaries.message_post(
-            body=_("Invoice <b>%s</b> created for manpower billing.") % invoice.name
-        )
+        for s in summaries:
+            s.message_post(
+                body=_("Invoice <b>%s</b> created for manpower billing.") % invoice.name
+            )
 
         return {
             "name": _("Manpower Invoice"),
