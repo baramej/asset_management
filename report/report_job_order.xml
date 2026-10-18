@@ -703,4 +703,315 @@
         </t>
     </template>
 
+    <!-- ══════════════════════════════════════════════════════════════════
+         WORKER JOB CARD — field copy for technicians.
+         No billing, invoice, rates, additional services, time logs,
+         assigned employees/team or approval details.
+    ═══════════════════════════════════════════════════════════════════ -->
+    <record id="action_report_asset_job_order_worker" model="ir.actions.report">
+        <field name="name">Job Card (Workers)</field>
+        <field name="model">asset.job.order</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">asset_management.report_asset_job_order_worker</field>
+        <field name="report_file">asset_management.report_asset_job_order_worker</field>
+        <field name="binding_model_id" ref="model_asset_job_order"/>
+        <field name="binding_type">report</field>
+        <field name="print_report_name">'Job Card (Workers) - %s' % (object.name)</field>
+        <field name="paperformat_id" ref="paperformat_asset_job_order"/>
+    </record>
+
+    <template id="report_asset_job_order_worker">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <t t-call="web.external_layout">
+                    <t t-set="ticket" t-value="o.helpdesk_ticket_id"/>
+                    <t t-set="portal_line" t-value="ticket.portal_line_ids[:1] if ticket else False"/>
+                    <t t-set="loc" t-value="o.asset_id.location_id if o.asset_id else False"/>
+                    <div class="page" style="font-size:13px;">
+
+                        <hr style="border-top: 2px solid #000; margin: 20px 0;"/>
+                        <h2 class="text-center" style="margin: 10px 0 4px 0;">Job Card</h2>
+                        <p class="text-center text-muted" style="margin-bottom:20px;">Technician / Worker Copy</p>
+
+                        <!-- ── Job details ───────────────────────────── -->
+                        <h4 class="mt-3 mb-2"
+                            style="background-color:#f8f9fa; padding:8px; border-left:4px solid #007bff;">
+                            Job Details
+                        </h4>
+                        <div class="row">
+                            <div class="col-6">
+                                <table class="table table-sm table-borderless">
+                                    <tr>
+                                        <td style="width:45%;"><strong>Job Order:</strong></td>
+                                        <td><span t-field="o.name"/></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Maintenance Task:</strong></td>
+                                        <td>
+                                            <span t-if="o.maintenance_task_id" t-field="o.maintenance_task_id.name"/>
+                                            <span t-else="" class="text-muted">-</span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Ticket:</strong></td>
+                                        <td>
+                                            <span t-if="ticket" t-field="ticket.name"/>
+                                            <span t-else="" class="text-muted">-</span>
+                                        </td>
+                                    </tr>
+                                    <tr t-if="portal_line and portal_line.job_category_id">
+                                        <td><strong>Job Category:</strong></td>
+                                        <td><span t-field="portal_line.job_category_id.name"/></td>
+                                    </tr>
+                                </table>
+                            </div>
+                            <div class="col-6">
+                                <table class="table table-sm table-borderless">
+                                    <tr>
+                                        <td style="width:45%;"><strong>Scheduled Date:</strong></td>
+                                        <td>
+                                            <span t-if="o.scheduled_date"
+                                                  t-field="o.scheduled_date"
+                                                  t-options='{"widget": "datetime", "format": "dd/MM/yyyy HH:mm"}'/>
+                                            <span t-else="" class="text-muted">-</span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Status:</strong></td>
+                                        <td><span t-field="o.state"/></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Asset / Equipment:</strong></td>
+                                        <td>
+                                            <span t-if="o.asset_id" t-field="o.asset_id.name"/>
+                                            <span t-else="" class="text-muted">-</span>
+                                        </td>
+                                    </tr>
+                                    <tr t-if="o.asset_id and (o.asset_id.asset_code or o.asset_id.serial_no)">
+                                        <td><strong>Asset Code / Serial:</strong></td>
+                                        <td>
+                                            <span t-esc="' / '.join(x for x in [o.asset_id.asset_code, o.asset_id.serial_no] if x)"/>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- ── Location ──────────────────────────────── -->
+                        <h4 class="mt-3 mb-2"
+                            style="background-color:#f8f9fa; padding:8px; border-left:4px solid #fd7e14;">
+                            Location
+                        </h4>
+                        <table class="table table-sm table-borderless">
+                            <tr t-if="loc">
+                                <td style="width:25%;"><strong>Location:</strong></td>
+                                <td>
+                                    <t t-if="loc.parent_id"><span t-esc="loc.parent_id.name"/> / </t>
+                                    <span t-esc="loc.name"/>
+                                    <span t-if="loc.full_code" class="text-muted"> (<t t-esc="loc.full_code"/>)</span>
+                                </td>
+                            </tr>
+                            <tr t-if="portal_line and portal_line.location_id">
+                                <td style="width:25%;"><strong>Site:</strong></td>
+                                <td><span t-esc="portal_line.location_id.name"/></td>
+                            </tr>
+                            <tr t-if="portal_line and portal_line.sublocation_id">
+                                <td><strong>Sub-location:</strong></td>
+                                <td><span t-esc="portal_line.sublocation_id.name"/></td>
+                            </tr>
+                            <tr t-if="portal_line and portal_line.building">
+                                <td><strong>Building / Unit:</strong></td>
+                                <td><span t-esc="portal_line.building"/></td>
+                            </tr>
+                            <tr t-if="o.property_id">
+                                <td style="width:25%;"><strong>Property:</strong></td>
+                                <td><span t-esc="o.property_id.display_name"/></td>
+                            </tr>
+                            <tr t-if="o.flat_no or o.flat_asset_id">
+                                <td><strong>Flat / Unit:</strong></td>
+                                <td><span t-esc="o.flat_no or o.flat_asset_id.name"/></td>
+                            </tr>
+                            <tr t-if="o.resident_name">
+                                <td><strong>Resident:</strong></td>
+                                <td><span t-esc="o.resident_name"/></td>
+                            </tr>
+                            <tr t-if="loc and loc.map_url">
+                                <td><strong>Map:</strong></td>
+                                <td style="font-size:11px; word-break:break-all;"><span t-esc="loc.map_url"/></td>
+                            </tr>
+                            <tr t-elif="loc and loc.gps_latitude and loc.gps_longitude">
+                                <td><strong>GPS:</strong></td>
+                                <td><span t-esc="'%.6f, %.6f' % (loc.gps_latitude, loc.gps_longitude)"/></td>
+                            </tr>
+                            <tr t-if="not (loc or portal_line or o.property_id or o.flat_no or o.flat_asset_id)">
+                                <td colspan="2" class="text-muted">No location recorded.</td>
+                            </tr>
+                        </table>
+
+                        <!-- ── Work requested ────────────────────────── -->
+                        <t t-if="o.description or (ticket and ticket.description) or (portal_line and portal_line.remarks)">
+                            <h4 class="mt-3 mb-2"
+                                style="background-color:#f8f9fa; padding:8px; border-left:4px solid #6c757d;">
+                                Work Requested
+                            </h4>
+                            <div t-if="ticket and ticket.description" t-field="ticket.description"
+                                 style="margin-left:8px;"/>
+                            <p t-if="portal_line and portal_line.remarks" style="margin-left:8px;">
+                                <strong>Remarks: </strong><span t-esc="portal_line.remarks"/>
+                            </p>
+                            <p t-if="o.description" t-field="o.description" style="margin-left:8px;"/>
+                        </t>
+
+                        <!-- ── Findings ──────────────────────────────── -->
+                        <t t-if="o.finding_line_ids">
+                            <h4 class="mt-3 mb-2"
+                                style="background-color:#f8f9fa; padding:8px; border-left:4px solid #dc3545;">
+                                Findings / Tasks
+                            </h4>
+                            <table class="table table-sm table-bordered">
+                                <thead style="background-color:#e9ecef;">
+                                    <tr>
+                                        <th style="width:5%;">#</th>
+                                        <th style="width:40%;">Description</th>
+                                        <th style="width:12%;">Severity</th>
+                                        <th style="width:13%;">Status</th>
+                                        <th style="width:30%;">Technician Note</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr t-foreach="o.finding_line_ids" t-as="f">
+                                        <td><span t-esc="f_index + 1"/></td>
+                                        <td>
+                                            <span t-field="f.description"/>
+                                            <t t-if="f.notes"><br/><small class="text-muted" t-field="f.notes"/></t>
+                                        </td>
+                                        <td><span t-field="f.severity"/></td>
+                                        <td><span t-field="f.status"/></td>
+                                        <td><span t-field="f.technician_note"/></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </t>
+
+                        <!-- ── Materials (no stock / pricing) ─────────── -->
+                        <t t-if="o.material_line_ids">
+                            <h4 class="mt-3 mb-2"
+                                style="background-color:#f8f9fa; padding:8px; border-left:4px solid #28a745;">
+                                Materials
+                            </h4>
+                            <table class="table table-sm table-bordered">
+                                <thead style="background-color:#e9ecef;">
+                                    <tr>
+                                        <th style="width:40%;">Item</th>
+                                        <th style="width:12%; text-align:center;">Unit</th>
+                                        <th style="width:14%; text-align:center;">Type</th>
+                                        <th style="width:12%; text-align:right;">Qty Planned</th>
+                                        <th style="width:12%; text-align:right;">Qty Used</th>
+                                        <th style="width:10%; text-align:center;">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr t-foreach="o.material_line_ids" t-as="m">
+                                        <td>
+                                            <span t-field="m.product_id.name"/>
+                                            <t t-if="m.description"><br/><small class="text-muted" t-field="m.description"/></t>
+                                        </td>
+                                        <td style="text-align:center;"><span t-if="m.uom_id" t-field="m.uom_id.name"/></td>
+                                        <td style="text-align:center;">
+                                            <t t-if="m.is_consumable">Consumable</t>
+                                            <t t-else="">Tool (return)</t>
+                                        </td>
+                                        <td style="text-align:right;"><span t-field="m.quantity_requested"/></td>
+                                        <td style="text-align:right;">
+                                            <span t-if="m.quantity_used" t-field="m.quantity_used"/>
+                                        </td>
+                                        <td style="text-align:center; font-size:11px;"><span t-field="m.approval_state"/></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </t>
+
+                        <!-- ── PM checklist ──────────────────────────── -->
+                        <t t-if="o.pm_checklist_line_ids">
+                            <h4 class="mt-3 mb-2"
+                                style="background-color:#f8f9fa; padding:8px; border-left:4px solid #17a2b8;">
+                                Checklist
+                            </h4>
+                            <table class="table table-sm table-bordered">
+                                <thead style="background-color:#e9ecef;">
+                                    <tr>
+                                        <th style="width:8%; text-align:center;">Done</th>
+                                        <th style="width:57%;">Item</th>
+                                        <th style="width:35%;">Notes</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr t-foreach="o.pm_checklist_line_ids" t-as="c">
+                                        <td style="text-align:center;"><t t-if="c.is_done">&#9745;</t><t t-else="">&#9744;</t></td>
+                                        <td>
+                                            <span t-field="c.description"/>
+                                            <strong t-if="c.is_mandatory" style="color:#dc3545;"> *</strong>
+                                        </td>
+                                        <td><span t-field="c.notes"/></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </t>
+
+                        <!-- ── Flat checklist ────────────────────────── -->
+                        <t t-if="o.job_type == 'flat' and o.flat_checklist_line_ids">
+                            <h4 class="mt-3 mb-2"
+                                style="background-color:#f8f9fa; padding:8px; border-left:4px solid #17a2b8;">
+                                Flat Checklist
+                            </h4>
+                            <table class="table table-sm table-bordered">
+                                <thead style="background-color:#e9ecef;">
+                                    <tr>
+                                        <th style="width:15%;">Section</th>
+                                        <th style="width:40%;">Item</th>
+                                        <th style="width:15%;">Status</th>
+                                        <th style="width:30%;">Remarks</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr t-foreach="o.flat_checklist_line_ids" t-as="c">
+                                        <td><span t-field="c.section"/></td>
+                                        <td><span t-field="c.description"/></td>
+                                        <td><span t-field="c.status"/></td>
+                                        <td><span t-field="c.remarks"/></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </t>
+
+                        <!-- ── Technician notes (space to write) ─────── -->
+                        <h4 class="mt-3 mb-2"
+                            style="background-color:#f8f9fa; padding:8px; border-left:4px solid #6c757d;">
+                            Technician Notes
+                        </h4>
+                        <p t-if="o.technician_notes" t-field="o.technician_notes" style="margin-left:8px;"/>
+                        <div t-else="" style="border:1px solid #dee2e6; height:90px;"/>
+
+                        <!-- ── Worker sign-off (blank) ───────────────── -->
+                        <div class="row mt-4" style="page-break-inside:avoid;">
+                            <div class="col-4">
+                                <div style="border-bottom:1px solid #000; height:40px;"/>
+                                <small>Technician Name</small>
+                            </div>
+                            <div class="col-4">
+                                <div style="border-bottom:1px solid #000; height:40px;"/>
+                                <small>Signature</small>
+                            </div>
+                            <div class="col-4">
+                                <div style="border-bottom:1px solid #000; height:40px;"/>
+                                <small>Date / Time Completed</small>
+                            </div>
+                        </div>
+
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+
 </odoo>
