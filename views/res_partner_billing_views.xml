@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Billing Email on contacts / customer companies -->
+    <record id="view_partner_form_billing_email" model="ir.ui.view">
+        <field name="name">res.partner.form.billing.email</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='email']" position="after">
+                <field name="billing_email" widget="email"
+                       placeholder="e.g. accounts@company.com"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Billing Email on Odoo companies (Settings > Companies) -->
+    <record id="view_company_form_billing_email" model="ir.ui.view">
+        <field name="name">res.company.form.billing.email</field>
+        <field name="model">res.company</field>
+        <field name="inherit_id" ref="base.view_company_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='email']" position="after">
+                <field name="billing_email" widget="email"
+                       placeholder="e.g. accounts@company.com"/>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>
