@@ -89,6 +89,11 @@
                             type="object"
                             icon="fa-print"/>
 
+                    <button name="action_print_worker_card"
+                            string="Print Worker Job Card"
+                            type="object"
+                            icon="fa-print"/>
+
                     <field name="state"
                            widget="statusbar"
                            statusbar_visible="draft,request_material,material_approved,in_progress,waiting_outsource,done,approved,closed"/>
@@ -165,6 +170,7 @@
                         </group>
                         <group string="Billing">
                             <field name="billing_partner_id"/>
+                            <field name="billing_email" widget="email"/>
                             <field name="labour_rate"/>
                             <field name="is_outsourced"
                                    widget="boolean_toggle"

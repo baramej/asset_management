@@ -4,7 +4,7 @@
         <field name="name">Job Order — Signature Request</field>
         <field name="model_id" ref="asset_management.model_asset_job_order"/>
         <field name="subject">Job Order ${object.name} — Your Signature Required</field>
-        <field name="email_to">${object.billing_partner_id.email or (object.asset_id.customer_id.email if object.asset_id else '') or ''}</field>
+        <field name="email_to">{{ object.billing_email or '' }}</field>
         <field name="body_html">${body}</field>
         <field name="auto_delete" eval="False"/>
     </record>

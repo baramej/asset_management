@@ -277,11 +277,11 @@ class AssetJobCloseWizard(models.TransientModel):
     )
     signed_by_name = fields.Char(
         string="Full Name (Signature)",
-        required=True,
+        help="Optional. Leave empty to proceed without a sign-off.",
     )
     signature = fields.Binary(
         string="Signature",
-        required=True,
+        help="Optional.",
     )
     supervisor_close_notes = fields.Text(string="Closing Notes")
 
@@ -306,11 +306,11 @@ class AssetJobApproveWizard(models.TransientModel):
     )
     signed_by_name = fields.Char(
         string="Full Name (Signature)",
-        required=True,
+        help="Optional. Leave empty to proceed without a sign-off.",
     )
     signature = fields.Binary(
         string="Signature",
-        required=True,
+        help="Optional.",
     )
     customer_approval = fields.Boolean(
         related="job_order_id.customer_approval",
