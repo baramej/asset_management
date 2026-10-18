@@ -357,19 +357,19 @@ class AssetJobOrder(models.Model):
         base_url = self.env["ir.config_parameter"].sudo().get_param("web.base.url", "")
         portal_url = f"{base_url}/my/job_order/{self.id}?access_token={token}"
 
-        customer = (
-                self.billing_partner_id
-                or (self.asset_id.customer_id if self.asset_id else False)
-                or (self.helpdesk_ticket_id.partner_id if self.helpdesk_ticket_id else False)
-        )
+        customer, customer_email = self._get_signature_recipient()
 
-        if not customer or not customer.email:
+        if not customer_email:
             raise UserError(_(
-                "No customer email found. "
-                "Please set the Billing Entity (with a valid email) before sending the signature request."
+                "No billing email found for %(partner)s.\n\n"
+                "Set the Billing Email on the customer company (Contacts → company → "
+                "Billing Email), or type it in the Billing Email field on this job order.",
+                partner=customer.display_name if customer else _("this job order (no Billing Entity set)"),
             ))
+        if not self.billing_email:
+            self.billing_email = customer_email
 
-        customer_name = customer.name or "Customer"
+        customer_name = (customer.name if customer else False) or "Customer"
         asset_name = self.asset_id.name if self.asset_id else "N/A"
         scheduled = str(self.scheduled_date or "N/A")
         team = self.maintenance_team_id.name if self.maintenance_team_id else "N/A"
@@ -428,7 +428,7 @@ class AssetJobOrder(models.Model):
         self.env["mail.mail"].sudo().create({
             "subject": f"Job Order {self.name} — Your Signature Required",
             "body_html": body_html,
-            "email_to": customer.email,
+            "email_to": customer_email,
             "author_id": self.env.user.partner_id.id,
             "auto_delete": False,
             "state": "outgoing",
@@ -443,7 +443,7 @@ class AssetJobOrder(models.Model):
                 "Signature request sent to <b>%(name)s</b> (%(email)s). "
                 "Portal link: <a href='%(url)s'>%(url)s</a>",
                 name=customer_name,
-                email=customer.email,
+                email=customer_email,
                 url=portal_url,
             ),
             subtype_xmlid="mail.mt_note",
@@ -473,6 +473,11 @@ class AssetJobOrder(models.Model):
     def action_print_report(self):
         return self.env.ref(
             "asset_management.action_report_asset_job_order"
+        ).report_action(self)
+
+    def action_print_worker_card(self):
+        return self.env.ref(
+            "asset_management.action_report_asset_job_order_worker"
         ).report_action(self)
 
     def _do_end_work(self):
@@ -593,9 +598,11 @@ class AssetJobOrder(models.Model):
             "approved_by_signature": signature,
         })
         self.message_post(
-            body=_(
-                "Job Order approved and signed by <b>%s</b>."
-            ) % signed_by_name
+            body=(
+                _("Job Order approved and signed by <b>%s</b>.") % (signed_by_name or self.env.user.name)
+                if signature or signed_by_name
+                else _("Job Order approved by <b>%s</b> (no signature).") % self.env.user.name
+            )
         )
 
         # If customer approval is not required, immediately close as well
@@ -934,9 +941,19 @@ class AssetJobOrder(models.Model):
         tracking=True,
         help="Auto-filled from the asset's customer. Can be overridden manually.",
     )
+    billing_email = fields.Char(
+        string="Billing Email",
+        compute="_compute_billing_email",
+        store=True,
+        readonly=False,
+        tracking=True,
+        help="Where the customer sign-off request is sent. Auto-filled from the "
+             "Billing Entity's company Billing Email (falls back to its normal email). "
+             "Can be overridden manually.",
+    )
     labour_rate = fields.Float(
         string="Labour Rate / Hour",
-        default=0.0,
+        default=3.5,
         help="Agreed billing rate per hour. Used to compute labour line on invoice.",
     )
     additional_service_ids = fields.One2many(
@@ -968,15 +985,39 @@ class AssetJobOrder(models.Model):
             task._handle_done_side_effects()
 
         self.message_post(
-            body=_(
-                "Job Order closed and signed by <b>%s</b>."
-            ) % signed_by_name
+            body=(
+                _("Job Order closed and signed by <b>%s</b>.") % (signed_by_name or self.env.user.name)
+                if signature or signed_by_name
+                else _("Job Order closed by <b>%s</b> (no signature).") % self.env.user.name
+            )
         )
 
     @api.depends("asset_id", "asset_id.customer_id")
     def _compute_billing_partner(self):
         for rec in self:
             rec.billing_partner_id = rec.asset_id.customer_id if rec.asset_id else False
+
+    @api.depends(
+        "billing_partner_id",
+        "billing_partner_id.billing_email",
+        "billing_partner_id.email",
+        "billing_partner_id.commercial_partner_id.billing_email",
+    )
+    def _compute_billing_email(self):
+        for rec in self:
+            rec.billing_email = rec.billing_partner_id._get_billing_email() or False
+
+    def _get_signature_recipient(self):
+        """Return (partner, email) the customer sign-off request goes to."""
+        self.ensure_one()
+        partner = (
+                self.billing_partner_id
+                or (self.asset_id.customer_id if self.asset_id else False)
+                or (self.helpdesk_ticket_id.partner_id.commercial_partner_id
+                    if self.helpdesk_ticket_id and self.helpdesk_ticket_id.partner_id else False)
+        )
+        email = self.billing_email or (partner._get_billing_email() if partner else False)
+        return partner, email
 
     @api.depends("state", "invoice_id")
     def _compute_can_create_invoice(self):
