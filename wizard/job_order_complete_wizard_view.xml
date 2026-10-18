@@ -111,9 +111,9 @@
         <field name="arch" type="xml">
             <form string="Close Job Order">
                 <field name="job_order_id" invisible="1"/>
-                <group string="Sign Off">
+                <group string="Sign Off (optional)">
                     <field name="signed_by_name"
-                           placeholder="Enter your full name to sign off..."/>
+                           placeholder="Optional — enter your full name to sign off..."/>
                     <field name="signature" widget="signature"/>
                 </group>
                 <group string="Closing Notes">
@@ -139,17 +139,17 @@
                 <sheet>
                     <!-- Show a note when customer_approval is off -->
                     <div class="alert alert-info"
-                         invisible="job_order_id.customer_approval != False"
+                         invisible="customer_approval"
                          role="alert">
                         <strong>Note:</strong>
                         Customer approval is not required for this job order.
-                        This signature will both approve <em>and</em> close the job order in one step.
+                        Confirming will both approve <em>and</em> close the job order in one step.
                     </div>
-                    <group>
-                        <field name="customer_approval" invisible="1"/>
+                    <field name="customer_approval" invisible="1"/>
+                    <group string="Sign Off (optional)">
                         <field name="job_order_id" invisible="1"/>
-                        <field name="signed_by_name" placeholder="Enter full name..."/>
-                        <field name="signature" widget="signature" required="1"/>
+                        <field name="signed_by_name" placeholder="Optional — enter full name..."/>
+                        <field name="signature" widget="signature"/>
                         <field name="approval_notes" placeholder="Optional notes..."/>
                     </group>
                 </sheet>
