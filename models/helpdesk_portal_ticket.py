@@ -22,11 +22,17 @@ class HelpdeskPortalTicketLine(models.Model):
     company_id = fields.Many2one("res.company", string="Company")
     department_id = fields.Many2one("hr.department", string="Department")
     location_id = fields.Many2one(
-        "asset.location", string="Parent Location",
-        domain=[("parent_id", "=", False)],
+        "asset.location", string="Main Location",
+        help="First level picked on the portal, e.g. WATTAYAH.",
     )
     sublocation_id = fields.Many2one(
-        "asset.location", string="Sub-location",
+        "asset.location", string="Exact Location",
+        help="Deepest level picked on the portal, e.g. BOILER ROOM under FORD SHOWROOM.",
+    )
+    location_display = fields.Char(
+        string="Location Path",
+        compute="_compute_location_display",
+        help="e.g. WATTAYAH / FORD SHOWROOM / BOILER ROOM",
     )
     building = fields.Char(string="Building / Unit")
     job_category_id = fields.Many2one(
@@ -37,3 +43,16 @@ class HelpdeskPortalTicketLine(models.Model):
     approver_id = fields.Many2one(
         "res.users", string="Approver (Manager)", readonly=True
     )
+
+    @api.depends("location_id", "sublocation_id", "sublocation_id.parent_path")
+    def _compute_location_display(self):
+        for rec in self:
+            leaf = rec.sublocation_id or rec.location_id
+            if not leaf:
+                rec.location_display = False
+                continue
+            ids = [int(x) for x in (leaf.parent_path or "").split("/") if x] or [leaf.id]
+            chain = leaf.browse(ids)
+            if rec.location_id and rec.location_id in chain:
+                chain = chain[list(chain).index(rec.location_id):]
+            rec.location_display = " / ".join(chain.mapped("name"))
