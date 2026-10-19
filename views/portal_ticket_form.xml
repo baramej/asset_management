@@ -17,7 +17,7 @@
                                     </div>
                                     <div>
                                         <h5 class="mb-0">Submit a Service Request</h5>
-                                        <small style="opacity:0.75">Fill in the details below and your manager will be
+                                        <small style="opacity:0.75">Fill in the details below and your selected approver will be
                                             notified for approval
                                         </small>
                                     </div>
@@ -255,34 +255,48 @@
                                         </div>
                                     </div>
 
-                                    <!-- ── Approver card ── -->
-                                    <div class="alert py-3 mb-4"
-                                         style="background:#f8f9ff;border:1px solid #e0e4ff;border-radius:8px">
-                                        <div class="d-flex align-items-center">
-                                            <div class="rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0"
-                                                 style="width:36px;height:36px;background:#e0e4ff">
-                                                <i class="fa fa-user-tie text-primary"/>
-                                            </div>
-                                            <div>
-                                                <div class="fw-bold text-dark" style="font-size:13px">Approval Route
+                                    <!-- ── SECTION: Approval ── -->
+                                    <div class="border-bottom pb-2 mb-3">
+                                        <h6 class="text-uppercase text-muted fw-bold"
+                                            style="font-size:11px;letter-spacing:1px">
+                                            <i class="fa fa-user-check me-1"/>Approval
+                                        </h6>
+                                    </div>
+
+                                    <div class="row mb-4">
+                                        <t t-if="approvers">
+                                            <div class="col-md-8">
+                                                <label class="form-label fw-bold" for="portal_approver_id">
+                                                    Approver
+                                                    <span class="text-danger">*</span>
+                                                </label>
+                                                <select name="portal_approver_id" id="portal_approver_id"
+                                                        t-att-class="'form-select is-invalid' if error.get('portal_approver_id') else 'form-select'">
+                                                    <option value="">— Select Approver —</option>
+                                                    <t t-foreach="approvers" t-as="appr">
+                                                        <option t-att-value="appr.id"
+                                                                t-att-selected="selected_approver_id == str(appr.id)">
+                                                            <t t-out="appr.display_name"/>
+                                                        </option>
+                                                    </t>
+                                                </select>
+                                                <div class="form-text text-muted">
+                                                    <i class="fa fa-info-circle me-1"/>
+                                                    Search by name, employee code, department name or department code.
+                                                    Your request is emailed to this person for approval.
                                                 </div>
-                                                <t t-if="manager">
-                                                    <span class="text-muted" style="font-size:13px">
-                                                        This request will be sent to
-                                                        <strong>
-                                                            <t t-out="manager.name"/>
-                                                        </strong>
-                                                        (<t t-out="manager_email"/>) for approval.
-                                                    </span>
-                                                </t>
-                                                <t t-else="">
-                                                    <span class="text-muted" style="font-size:13px">
-                                                        No manager found — this ticket will go directly to the helpdesk
-                                                        team.
-                                                    </span>
-                                                </t>
                                             </div>
-                                        </div>
+                                        </t>
+                                        <t t-else="">
+                                            <div class="col-12">
+                                                <div class="alert py-2 mb-0 text-muted"
+                                                     style="background:#f8f9ff;border:1px solid #e0e4ff;border-radius:8px;font-size:13px">
+                                                    <i class="fa fa-info-circle me-1"/>
+                                                    No approver list is configured — the request will follow the
+                                                    standard approval route.
+                                                </div>
+                                            </div>
+                                        </t>
                                     </div>
 
                                     <!-- Submit -->
@@ -365,6 +379,7 @@
         input.className = "form-control";
         input.autocomplete = "off";
         input.placeholder = placeholder || "Type to search...";
+        if (selectEl.classList.contains("is-invalid")) input.classList.add("is-invalid");
         wrap.insertBefore(input, selectEl);
 
         var dropdown = document.createElement("div");
@@ -378,11 +393,14 @@
 
         function buildList(filterText) {
             dropdown.innerHTML = "";
-            var filterLower = (filterText || "").toLowerCase();
+            // Every typed word must appear somewhere in the option, in any order
+            // (e.g. "kia 10768" or "sushil sales").
+            var terms = (filterText || "").toLowerCase().split(/\s+/).filter(Boolean);
             var any = false;
             Array.prototype.forEach.call(selectEl.options, function (opt) {
                 if (!opt.value) return;
-                if (filterLower && opt.text.toLowerCase().indexOf(filterLower) === -1) return;
+                var text = opt.text.toLowerCase();
+                if (terms.some(function (t) { return text.indexOf(t) === -1; })) return;
                 any = true;
                 var item = document.createElement("div");
                 item.className = "searchable-select-item" + (opt.value === selectEl.value ? " active" : "");
@@ -522,6 +540,8 @@
         makeSearchable(document.getElementById("location_id"), "Search location...");
         makeSearchable(document.getElementById("sublocation_id"), "Search sub-location...");
         makeSearchable(document.getElementById("asset_id"), "Search equipment...");
+        makeSearchable(document.getElementById("portal_approver_id"),
+                       "Type name, emp code, department...");
 
         var locSel = document.getElementById("location_id");
         if (locSel && locSel.value) onLocationChange(locSel.value);
@@ -548,7 +568,7 @@
                             </div>
                             <h4 class="fw-bold">Request Submitted Successfully</h4>
                             <p class="text-muted">
-                                Your service request is now <strong>pending manager approval</strong>.
+                                Your service request is now <strong>pending approval</strong> by your selected approver.
                                 You will receive an email notification once it has been reviewed.
                             </p>
                         </div>
@@ -702,9 +722,9 @@
                                     <t t-elif="ticket.manager_approval_state == 'denied'">Denied</t>
                                     <t t-else="">—</t>
                                 </p>
-                                <p class="mb-2" t-if="ticket.manager_employee_id">
-                                    <strong>Manager:</strong>
-                                    <t t-out="ticket.manager_employee_id.name"/>
+                                <p class="mb-2" t-if="ticket.portal_approver_id or ticket.manager_employee_id">
+                                    <strong>Approver:</strong>
+                                    <t t-out="ticket.portal_approver_id.name or ticket.manager_employee_id.name"/>
                                 </p>
                             </div>
                             <div class="col-md-6">
