@@ -1,6 +1,6 @@
 {
     "name": "Asset Management",
-    "version": "1.1",
+    "version": "1.2",
     "summary": "Comprehensive Asset & CAFM Management",
     "description": """
      Standalone Asset Management app
@@ -55,6 +55,7 @@
         'data/helpdesk_job_categories.xml',
         'views/portal_ticket_form.xml',
         'views/asset_portal_company_views.xml',
+        'views/portal_approver_views.xml',
         'views/res_config_settings_views.xml',
         'views/res_partner_billing_views.xml',
         'views/portal_employee_signup_templates.xml',
