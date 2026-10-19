@@ -41,6 +41,7 @@ class AssetLocation(models.Model):
         string="Full Code",
         compute="_compute_full_code",
         store=True,
+        recursive=True,
         help="Hierarchical code like MAIN/BLDG2/FL01/R101"
     )
 
