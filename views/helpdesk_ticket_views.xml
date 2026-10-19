@@ -65,6 +65,7 @@
                                decoration-warning="manager_approval_state == 'waiting_manager_approval'"
                                decoration-success="manager_approval_state == 'approved'"
                                decoration-danger="manager_approval_state == 'denied'"/>
+                        <field name="portal_approver_id" readonly="1" invisible="not portal_approver_id"/>
                         <field name="manager_id" readonly="1" invisible="not manager_id"/>
                         <field name="manager_employee_id" readonly="1" invisible="not manager_employee_id"/>
                         <field name="manager_email" readonly="1" invisible="not manager_email"/>
