@@ -22,3 +22,4 @@ from . import helpdesk_portal_ticket
 from . import portal_employee_link
 from . import res_config_settings
 from . import res_partner_billing
+from . import portal_approver
