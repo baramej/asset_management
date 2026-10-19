@@ -84,6 +84,12 @@ class HelpdeskTicket(models.Model):
         "need an Odoo login: the approval link is emailed to them.",
     )
     manager_email = fields.Char(string="Manager Email", readonly=True)
+    portal_approver_id = fields.Many2one(
+        "asset.portal.approver",
+        string="Selected Approver",
+        readonly=True,
+        help="Approver the employee picked from the approver list on the portal form.",
+    )
 
     def action_debug_approval(self):
         """Temporary debug button — remove after fixing."""
@@ -136,20 +142,28 @@ class HelpdeskTicket(models.Model):
                 })
                 ticket.cafm_ticket_id = cafm.id
 
-            # Manager approval logic
-            manager = ticket._get_manager_employee()
-            email = self._manager_email_of(manager)
+            # Manager approval logic: the approver picked on the portal form
+            # wins; otherwise fall back to the requester's HR manager.
+            approver = ticket.portal_approver_id
+            if approver:
+                manager = approver.employee_id
+                manager_name = approver.name or approver.eg_name or manager.name
+                email = approver.approval_email
+            else:
+                manager = ticket._get_manager_employee()
+                manager_name = manager.name
+                email = self._manager_email_of(manager)
             if email:
                 token = str(_uuid.uuid4())
                 ticket.write({
                     "manager_approval_state": "waiting_manager_approval",
                     "approval_access_token": token,
                     "manager_id": manager.user_id.id or False,
-                    "manager_employee_id": manager.id,
+                    "manager_employee_id": manager.id or False,
                     "manager_email": email,
                     "stage_id": ticket._get_waiting_approval_stage().id,
                 })
-                ticket._send_manager_approval_email(manager.name, email, token)
+                ticket._send_manager_approval_email(manager_name, email, token)
 
         return tickets
 
@@ -188,6 +202,16 @@ class HelpdeskTicket(models.Model):
         self.ensure_one()
         user = self._get_manager_employee().user_id
         return user if user and user.email else False
+
+    def _approver_display_name(self):
+        self.ensure_one()
+        return (
+            self.portal_approver_id.name
+            or self.manager_employee_id.name
+            or self.manager_id.name
+            or self.manager_email
+            or "—"
+        )
 
     def _get_waiting_approval_stage(self):
         """Get or create a 'Waiting Manager Approval' stage."""
@@ -290,7 +314,7 @@ class HelpdeskTicket(models.Model):
         self.write(vals)
         self.message_post(
             body=_("Ticket approved by manager <b>%s</b>. Moved to New.")
-            % (self.manager_employee_id.name or self.manager_id.name)
+            % self._approver_display_name()
         )
 
     def action_manager_deny(self, reason=""):
@@ -310,7 +334,7 @@ class HelpdeskTicket(models.Model):
         self.message_post(
             body=_(
                 "Ticket denied by manager <b>%(manager)s</b>. Reason: %(reason)s",
-                manager=self.manager_employee_id.name or self.manager_id.name,
+                manager=self._approver_display_name(),
                 reason=reason or "—",
             )
         )
