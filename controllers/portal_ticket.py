@@ -77,12 +77,12 @@ class HelpdeskPortalTicketController(http.Controller):
             [("active", "=", True)], order="sequence, name"
         )
         assets = self._get_assets_for_user(scope_company.id if scope_company else None)
-        manager = employee.parent_id if employee else False
-        manager_email = False
-        if manager:
-            manager_email = request.env["helpdesk.ticket"]._manager_email_of(manager)
-            if not manager_email:
-                manager = False
+        approvers = request.env["asset.portal.approver"]._portal_selectable()
+        if post and post.get("portal_approver_id"):
+            selected_approver_id = str(post.get("portal_approver_id"))
+        else:
+            last = self._last_approver(partner, approvers)
+            selected_approver_id = str(last.id) if last else ""
 
         return {
             "user_company": user_company,
@@ -96,13 +96,34 @@ class HelpdeskPortalTicketController(http.Controller):
             "locations": locations,
             "job_categories": job_categories,
             "assets": assets,
-            "manager": manager,
-            "manager_email": manager_email,
+            "approvers": approvers,
+            "selected_approver_id": selected_approver_id,
             "page_name": "new_ticket",
             "error": error or {},
             "error_message": error_message or [],
             "post": post or {},
         }
+
+    def _last_approver(self, partner, approvers):
+        """Approver this employee picked on their latest request, if still listed."""
+        last_ticket = request.env["helpdesk.ticket"].sudo().search(
+            [("partner_id", "=", partner.id), ("portal_approver_id", "!=", False)],
+            order="create_date desc", limit=1,
+        )
+        approver = last_ticket.portal_approver_id
+        return approver if approver and approver in approvers else False
+
+    def _resolve_approver(self, value):
+        """Approver for a posted id, only if it is on the selectable list."""
+        try:
+            approver_id = int(value or 0)
+        except (TypeError, ValueError):
+            return False
+        if not approver_id:
+            return False
+        approvers = request.env["asset.portal.approver"]._portal_selectable()
+        approver = approvers.filtered(lambda a: a.id == approver_id)
+        return approver or False
 
     # ── GET ──────────────────────────────────────────────────────────────────
 
@@ -147,6 +168,10 @@ class HelpdeskPortalTicketController(http.Controller):
         if not post.get("job_category_id"):
             errors["job_category_id"] = True
             error_message.append(_("Job Category is required."))
+        approver = self._resolve_approver(post.get("portal_approver_id"))
+        if not approver and request.env["asset.portal.approver"]._portal_selectable():
+            errors["portal_approver_id"] = True
+            error_message.append(_("Please select an approver from the list."))
 
         if errors:
             ctx = self._get_form_context(
@@ -175,8 +200,10 @@ class HelpdeskPortalTicketController(http.Controller):
         }
         if post.get("asset_id"):
             ticket_vals["asset_id"] = int(post["asset_id"])
+        if approver:
+            ticket_vals["portal_approver_id"] = approver.id
 
-        # helpdesk.ticket.create() resolves the manager, moves the ticket to
+        # helpdesk.ticket.create() routes to the selected approver, moves the ticket to
         # "Waiting Manager Approval" and emails the approval link.
         ticket = request.env["helpdesk.ticket"].sudo().create(ticket_vals)
         # Company / department are trusted from the server-side user record only —
@@ -220,7 +247,7 @@ class HelpdeskPortalTicketController(http.Controller):
                 cat=category.name if category else "—",
                 asset=asset.name if asset else "—",
                 priority=priority_label,
-                approver=ticket.manager_employee_id.name or "—",
+                approver=ticket._approver_display_name(),
             ),
             subtype_xmlid="mail.mt_note",
         )
