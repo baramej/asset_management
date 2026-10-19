@@ -16,15 +16,41 @@ class HelpdeskPortalTicketController(http.Controller):
         return employee.company_id if employee and employee.company_id else user.company_id
 
     def _get_scope_company(self, user, employee):
-        """Company that limits locations/assets, or False for no limit.
-
-        Employees whose portal company has "See All Locations & Assets"
-        ticked (e.g. Al Manar) see everything.
+        """Company that limits the assets offered, or False for no limit.
+        (Locations are never limited.) Employees whose portal company has
+        "See All Assets" ticked (e.g. Al Manar) see every company's assets.
         """
         if employee and employee.portal_company_id.portal_full_access:
             return False
         return self._get_company(user, employee)
 
+    def _top_locations(self, scope_company=None):
+        """First level of the location picker (e.g. WATTAYAH, RUWI ...).
+
+        Locations are not company-restricted: everyone sees the full tree,
+        starting at the root locations. Only assets are filtered by company
+        (see _get_assets_for_user / assets_by_location).
+        """
+        return request.env["asset.location"].sudo().search(
+            [("parent_id", "=", False)], order="name"
+        )
+
+    def _user_top_locations(self):
+        return self._top_locations()
+
+    @staticmethod
+    def _location_chain(location, tops):
+        """Ancestors of `location`, itself included, starting at the first one
+        that is offered on the first level of the picker.
+        WATTAYAH / FORD SHOWROOM / BOILER ROOM -> [WATTAYAH, FORD SHOWROOM, BOILER ROOM]."""
+        if not location:
+            return location
+        ids = [int(x) for x in (location.parent_path or "").split("/") if x] or [location.id]
+        chain = location.browse(ids)
+        for index, loc in enumerate(chain):
+            if loc in tops:
+                return chain[index:]
+        return location.browse()
 
     def _get_or_create_manager_approval_stage(self):
         Stage = request.env["helpdesk.stage"].sudo()
@@ -53,36 +79,30 @@ class HelpdeskPortalTicketController(http.Controller):
         user_department = employee.department_id if employee else False
 
         scope_company = self._get_scope_company(user, employee)
-        if scope_company:
-            location_domain = [
-                ("company_id", "=", scope_company.id),
-                "|",
-                ("parent_id", "=", False),
-                ("parent_id.company_id", "!=", scope_company.id),
-            ]
-            locations = request.env["asset.location"].sudo().search(
-                location_domain, order="name"
-            )
-        else:
-            # Full access: every company's main locations, i.e. locations
-            # with no parent, or whose parent belongs to another company.
-            locations = request.env["asset.location"].sudo().search(
-                [], order="name"
-            ).filtered(
-                lambda loc: not loc.parent_id
-                            or loc.parent_id.company_id != loc.company_id
-            )
+        locations = self._top_locations()
 
         job_categories = request.env["helpdesk.job.category"].sudo().search(
             [("active", "=", True)], order="sequence, name"
         )
         assets = self._get_assets_for_user(scope_company.id if scope_company else None)
-        manager = employee.parent_id if employee else False
-        manager_email = False
-        if manager:
-            manager_email = request.env["helpdesk.ticket"]._manager_email_of(manager)
-            if not manager_email:
-                manager = False
+        asset_location_paths = {
+            a.id: ",".join(str(i) for i in self._location_chain(a.location_id, locations).ids)
+            for a in assets
+        }
+        initial_location = request.env["asset.location"]
+        if post:
+            leaf_id = post.get("sublocation_id") or post.get("location_id")
+            if leaf_id and str(leaf_id).isdigit():
+                initial_location = initial_location.sudo().browse(int(leaf_id)).exists()
+        initial_location_path = ",".join(
+            str(i) for i in self._location_chain(initial_location, locations).ids
+        )
+        approvers = request.env["asset.portal.approver"]._portal_selectable()
+        if post and post.get("portal_approver_id"):
+            selected_approver_id = str(post.get("portal_approver_id"))
+        else:
+            last = self._last_approver(partner, approvers)
+            selected_approver_id = str(last.id) if last else ""
 
         return {
             "user_company": user_company,
@@ -96,13 +116,52 @@ class HelpdeskPortalTicketController(http.Controller):
             "locations": locations,
             "job_categories": job_categories,
             "assets": assets,
-            "manager": manager,
-            "manager_email": manager_email,
+            "asset_location_paths": asset_location_paths,
+            "initial_location_path": initial_location_path,
+            "approvers": approvers,
+            "selected_approver_id": selected_approver_id,
             "page_name": "new_ticket",
             "error": error or {},
             "error_message": error_message or [],
             "post": post or {},
         }
+
+    def _last_approver(self, partner, approvers):
+        """Approver this employee picked on their latest request, if still listed."""
+        last_ticket = request.env["helpdesk.ticket"].sudo().search(
+            [("partner_id", "=", partner.id), ("portal_approver_id", "!=", False)],
+            order="create_date desc", limit=1,
+        )
+        approver = last_ticket.portal_approver_id
+        return approver if approver and approver in approvers else False
+
+    def _resolve_approver(self, value):
+        """Approver for a posted id, only if it is on the selectable list."""
+        try:
+            approver_id = int(value or 0)
+        except (TypeError, ValueError):
+            return False
+        if not approver_id:
+            return False
+        approvers = request.env["asset.portal.approver"]._portal_selectable()
+        approver = approvers.filtered(lambda a: a.id == approver_id)
+        return approver or False
+
+    def _posted_locations(self, post):
+        """(top, deepest) locations from the form, checked against the tree:
+        the top must be offered to this user and the deepest must sit under it."""
+        Location = request.env["asset.location"].sudo()
+        top = leaf = Location
+        top_id, leaf_id = post.get("location_id"), post.get("sublocation_id")
+        if top_id and str(top_id).isdigit():
+            top = Location.browse(int(top_id)).exists()
+            if top and top not in self._user_top_locations():
+                top = Location
+        if top and leaf_id and str(leaf_id).isdigit():
+            leaf = Location.search([("id", "=", int(leaf_id)), ("id", "child_of", top.id)], limit=1)
+            if leaf == top:
+                leaf = Location
+        return top, leaf
 
     # ── GET ──────────────────────────────────────────────────────────────────
 
@@ -126,6 +185,19 @@ class HelpdeskPortalTicketController(http.Controller):
             team = Team.search([("company_id", "=", False)], limit=1)
         return team
 
+    def _align_partner_company(self, partner, team):
+        """Helpdesk refuses a ticket whose customer belongs to another company
+        than the ticket (= its team's company). Employees are often held under
+        one company (e.g. SBG) while their portal contact sits in another
+        (e.g. SBA), so make the contact shared (no company) in that case."""
+        ticket_company = team.company_id
+        if partner.company_id and ticket_company and partner.company_id != ticket_company:
+            _logger.info(
+                "Portal ticket: clearing company %s on contact %s (ticket company %s).",
+                partner.company_id.name, partner.display_name, ticket_company.name,
+            )
+            partner.sudo().company_id = False
+
     # ── POST ─────────────────────────────────────────────────────────────────
 
     @http.route("/my/tickets/new", auth="user", website=True, methods=["POST"], csrf=True)
@@ -147,6 +219,10 @@ class HelpdeskPortalTicketController(http.Controller):
         if not post.get("job_category_id"):
             errors["job_category_id"] = True
             error_message.append(_("Job Category is required."))
+        approver = self._resolve_approver(post.get("portal_approver_id"))
+        if not approver and request.env["asset.portal.approver"]._portal_selectable():
+            errors["portal_approver_id"] = True
+            error_message.append(_("Please select an approver from the list."))
 
         if errors:
             ctx = self._get_form_context(
@@ -160,6 +236,7 @@ class HelpdeskPortalTicketController(http.Controller):
         company = self._get_company(user, employee)
         user_department = employee.department_id if employee else False
         team = self._get_helpdesk_team(company)
+        self._align_partner_company(partner, team)
 
         # Priority: portal sends '0','1','2','3' matching helpdesk stars
         priority = post.get("priority", "0")
@@ -175,8 +252,10 @@ class HelpdeskPortalTicketController(http.Controller):
         }
         if post.get("asset_id"):
             ticket_vals["asset_id"] = int(post["asset_id"])
+        if approver:
+            ticket_vals["portal_approver_id"] = approver.id
 
-        # helpdesk.ticket.create() resolves the manager, moves the ticket to
+        # helpdesk.ticket.create() routes to the selected approver, moves the ticket to
         # "Waiting Manager Approval" and emails the approval link.
         ticket = request.env["helpdesk.ticket"].sudo().create(ticket_vals)
         # Company / department are trusted from the server-side user record only —
@@ -186,10 +265,11 @@ class HelpdeskPortalTicketController(http.Controller):
             "company_id": company.id,
             "department_id": user_department.id if user_department else False,
         }
-        if post.get("location_id"):
-            extra_vals["location_id"] = int(post["location_id"])
-        if post.get("sublocation_id"):
-            extra_vals["sublocation_id"] = int(post["sublocation_id"])
+        top_location, leaf_location = self._posted_locations(post)
+        if top_location:
+            extra_vals["location_id"] = top_location.id
+        if leaf_location:
+            extra_vals["sublocation_id"] = leaf_location.id
         if post.get("building"):
             extra_vals["building"] = post["building"].strip()
         if post.get("job_category_id"):
@@ -220,7 +300,7 @@ class HelpdeskPortalTicketController(http.Controller):
                 cat=category.name if category else "—",
                 asset=asset.name if asset else "—",
                 priority=priority_label,
-                approver=ticket.manager_employee_id.name or "—",
+                approver=ticket._approver_display_name(),
             ),
             subtype_xmlid="mail.mt_note",
         )
@@ -257,7 +337,6 @@ class HelpdeskPortalTicketController(http.Controller):
             "page_name": "service_requests",
         })
 
-
     @http.route("/my/tickets/submitted", auth="user", website=True)
     def portal_ticket_submitted(self, **kwargs):
         return request.render(
@@ -268,44 +347,42 @@ class HelpdeskPortalTicketController(http.Controller):
 
     @http.route("/my/tickets/sublocations", auth="user", type="json", methods=["POST"])
     def sublocations(self, parent_id=None, **kwargs):
+        """Children of a location, for the next level of the picker."""
         if not parent_id:
             return []
         locs = request.env["asset.location"].sudo().search(
             [("parent_id", "=", int(parent_id))], order="name"
         )
-        return [{"id": l.id, "name": l.name} for l in locs]
+        return [{"id": l.id, "name": l.name, "has_children": bool(l.child_ids)} for l in locs]
 
     def _assets_payload(self, assets):
-        return [
-            {
+        tops = self._user_top_locations()
+        payload = []
+        for a in assets:
+            chain = self._location_chain(a.location_id, tops)
+            payload.append({
                 "id": a.id,
                 "name": a.name,
                 "location_id": a.location_id.id or False,
-                "location_name": a.location_id.name or "",
-            }
-            for a in assets
-        ]
+                "location_name": " / ".join(chain.mapped("name")) or a.location_id.name or "",
+                "location_path": ",".join(str(i) for i in chain.ids),
+            })
+        return payload
 
     @http.route("/my/tickets/assets_by_location", auth="user", type="json", methods=["POST"])
     def assets_by_location(self, location_id=None, sublocation_id=None, **kwargs):
-        """Return assets for the given location.
-        - sublocation chosen  -> assets at that exact sub-location only
-        - only main location  -> assets at that location AND all its descendants
-        - neither             -> fall back to full company-scoped list
-        """
+        """Assets at the deepest selected location and everything below it,
+        limited to the user's company (unless their portal company has
+        "See All Assets"). WATTAYAH -> all of Wattayah; + FORD
+        SHOWROOM -> the showroom incl. its Boiler Room; + BOILER ROOM -> just
+        the boiler room. Nothing selected -> all of the user's assets."""
         user = request.env.user
-
-        if sublocation_id:
-            assets = request.env["account.asset"].sudo().search(
-                [("location_id", "=", int(sublocation_id))], order="name asc"
-            )
-        elif location_id:
-            assets = request.env["account.asset"].sudo().search(
-                [("location_id", "child_of", int(location_id))], order="name asc"
-            )
-        else:
-            scope_company = self._get_scope_company(user, self._get_employee(user))
-            assets = self._get_assets_for_user(scope_company.id if scope_company else None)
-            return self._assets_payload(assets)
-
+        scope_company = self._get_scope_company(user, self._get_employee(user))
+        domain = []
+        if scope_company:
+            domain.append(("company_id", "=", scope_company.id))
+        leaf_id = sublocation_id or location_id
+        if leaf_id:
+            domain.append(("location_id", "child_of", int(leaf_id)))
+        assets = request.env["account.asset"].sudo().search(domain, order="name asc")
         return self._assets_payload(assets)

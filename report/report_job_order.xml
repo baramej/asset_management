@@ -804,23 +804,18 @@
                         </h4>
                         <table class="table table-sm table-borderless">
                             <tr t-if="loc">
-                                <td style="width:25%;"><strong>Location:</strong></td>
+                                <td style="width:25%;"><strong>Asset Location:</strong></td>
                                 <td>
-                                    <t t-if="loc.parent_id"><span t-esc="loc.parent_id.name"/> / </t>
-                                    <span t-esc="loc.name"/>
+                                    <span t-esc="' / '.join(loc.browse([int(x) for x in (loc.parent_path or '').split('/') if x] or [loc.id]).mapped('name'))"/>
                                     <span t-if="loc.full_code" class="text-muted"> (<t t-esc="loc.full_code"/>)</span>
                                 </td>
                             </tr>
-                            <tr t-if="portal_line and portal_line.location_id">
-                                <td style="width:25%;"><strong>Site:</strong></td>
-                                <td><span t-esc="portal_line.location_id.name"/></td>
-                            </tr>
-                            <tr t-if="portal_line and portal_line.sublocation_id">
-                                <td><strong>Sub-location:</strong></td>
-                                <td><span t-esc="portal_line.sublocation_id.name"/></td>
+                            <tr t-if="portal_line and portal_line.location_display">
+                                <td style="width:25%;"><strong>Reported Location:</strong></td>
+                                <td><span t-esc="portal_line.location_display"/></td>
                             </tr>
                             <tr t-if="portal_line and portal_line.building">
-                                <td><strong>Building / Unit:</strong></td>
+                                <td><strong>Exact spot / Room:</strong></td>
                                 <td><span t-esc="portal_line.building"/></td>
                             </tr>
                             <tr t-if="o.property_id">

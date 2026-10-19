@@ -17,7 +17,7 @@
                                     </div>
                                     <div>
                                         <h5 class="mb-0">Submit a Service Request</h5>
-                                        <small style="opacity:0.75">Fill in the details below and your manager will be
+                                        <small style="opacity:0.75">Fill in the details below and your selected approver will be
                                             notified for approval
                                         </small>
                                     </div>
@@ -108,33 +108,38 @@
                                         </h6>
                                     </div>
 
-                                    <div class="row mb-3">
-                                        <div class="col-md-4 mb-3 mb-md-0">
-                                            <label class="form-label fw-bold" for="location_id">Main Location</label>
-                                            <select name="location_id" id="location_id"
-                                                    class="form-select"
-                                                    onchange="onLocationChange(this.value)">
-                                                <option value="">— Select Location —</option>
+                                    <!-- Cascading location levels: Location > Building / Area > Room / Section ...
+                                         Level 1 is rendered here; deeper levels are added by JS when the
+                                         chosen location has children. Leave a level empty to cover
+                                         everything under the level above it. -->
+                                    <input type="hidden" name="location_id" id="location_id"
+                                           t-att-value="post.get('location_id', '') if post else ''"/>
+                                    <input type="hidden" name="sublocation_id" id="sublocation_id"
+                                           t-att-value="post.get('sublocation_id', '') if post else ''"/>
+                                    <div class="row" id="location_levels"
+                                         t-att-data-initial-path="initial_location_path or ''">
+                                        <div class="col-md-4 mb-3" data-level="0">
+                                            <label class="form-label fw-bold" for="loc_level_0">Location</label>
+                                            <select id="loc_level_0" class="form-select loc-level" data-level="0">
+                                                <option value="">— All Locations —</option>
                                                 <t t-foreach="locations" t-as="loc">
                                                     <option t-att-value="loc.id"
-                                                            t-att-selected="str(post.get('location_id','')) == str(loc.id) if post else ''">
+                                                            t-att-data-has-children="'1' if loc.child_ids else ''">
                                                         <t t-out="loc.name"/>
                                                     </option>
                                                 </t>
                                             </select>
                                         </div>
-                                        <div class="col-md-4 mb-3 mb-md-0">
-                                            <label class="form-label fw-bold" for="sublocation_id">Sub-location</label>
-                                            <select name="sublocation_id" id="sublocation_id" class="form-select">
-                                                <option value="">— Select Sub-location —</option>
-                                            </select>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <label class="form-label fw-bold" for="building">Unit / Room</label>
+                                    </div>
+                                    <div class="row mb-3">
+                                        <div class="col-md-8">
+                                            <label class="form-label fw-bold" for="building">
+                                                Exact spot / Room no. <span class="text-muted fw-normal">(optional)</span>
+                                            </label>
                                             <input type="text" name="building" id="building"
                                                    class="form-control"
                                                    t-att-value="post.get('building', '') if post else ''"
-                                                   placeholder="e.g. Room 101, Villa 5"/>
+                                                   placeholder="e.g. Room 101, near the main entrance, 2nd floor"/>
                                         </div>
                                     </div>
 
@@ -170,6 +175,7 @@
                                                     <option t-att-value="asset.id"
                                                             t-att-data-location-id="asset.location_id.id or ''"
                                                             t-att-data-location-name="asset.location_id.name or ''"
+                                                            t-att-data-location-path="asset_location_paths.get(asset.id, '')"
                                                             t-att-selected="str(post.get('asset_id','')) == str(asset.id) if post else ''">
                                                         <t t-out="asset.name"/>
                                                     </option>
@@ -177,7 +183,7 @@
                                             </select>
                                             <div class="form-text text-muted">
                                                 <i class="fa fa-info-circle me-1"/>
-                                                Selecting an asset will auto-fill the location above.
+                                                Pick a location to narrow this list, or pick the equipment first to fill in its location.
                                             </div>
                                         </div>
                                     </div>
@@ -255,34 +261,48 @@
                                         </div>
                                     </div>
 
-                                    <!-- ── Approver card ── -->
-                                    <div class="alert py-3 mb-4"
-                                         style="background:#f8f9ff;border:1px solid #e0e4ff;border-radius:8px">
-                                        <div class="d-flex align-items-center">
-                                            <div class="rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0"
-                                                 style="width:36px;height:36px;background:#e0e4ff">
-                                                <i class="fa fa-user-tie text-primary"/>
-                                            </div>
-                                            <div>
-                                                <div class="fw-bold text-dark" style="font-size:13px">Approval Route
+                                    <!-- ── SECTION: Approval ── -->
+                                    <div class="border-bottom pb-2 mb-3">
+                                        <h6 class="text-uppercase text-muted fw-bold"
+                                            style="font-size:11px;letter-spacing:1px">
+                                            <i class="fa fa-user-check me-1"/>Approval
+                                        </h6>
+                                    </div>
+
+                                    <div class="row mb-4">
+                                        <t t-if="approvers">
+                                            <div class="col-md-8">
+                                                <label class="form-label fw-bold" for="portal_approver_id">
+                                                    Approver
+                                                    <span class="text-danger">*</span>
+                                                </label>
+                                                <select name="portal_approver_id" id="portal_approver_id"
+                                                        t-att-class="'form-select is-invalid' if error.get('portal_approver_id') else 'form-select'">
+                                                    <option value="">— Select Approver —</option>
+                                                    <t t-foreach="approvers" t-as="appr">
+                                                        <option t-att-value="appr.id"
+                                                                t-att-selected="selected_approver_id == str(appr.id)">
+                                                            <t t-out="appr.display_name"/>
+                                                        </option>
+                                                    </t>
+                                                </select>
+                                                <div class="form-text text-muted">
+                                                    <i class="fa fa-info-circle me-1"/>
+                                                    Search by name, employee code, department name or department code.
+                                                    Your request is emailed to this person for approval.
                                                 </div>
-                                                <t t-if="manager">
-                                                    <span class="text-muted" style="font-size:13px">
-                                                        This request will be sent to
-                                                        <strong>
-                                                            <t t-out="manager.name"/>
-                                                        </strong>
-                                                        (<t t-out="manager_email"/>) for approval.
-                                                    </span>
-                                                </t>
-                                                <t t-else="">
-                                                    <span class="text-muted" style="font-size:13px">
-                                                        No manager found — this ticket will go directly to the helpdesk
-                                                        team.
-                                                    </span>
-                                                </t>
                                             </div>
-                                        </div>
+                                        </t>
+                                        <t t-else="">
+                                            <div class="col-12">
+                                                <div class="alert py-2 mb-0 text-muted"
+                                                     style="background:#f8f9ff;border:1px solid #e0e4ff;border-radius:8px;font-size:13px">
+                                                    <i class="fa fa-info-circle me-1"/>
+                                                    No approver list is configured — the request will follow the
+                                                    standard approval route.
+                                                </div>
+                                            </div>
+                                        </t>
                                     </div>
 
                                     <!-- Submit -->
@@ -365,6 +385,7 @@
         input.className = "form-control";
         input.autocomplete = "off";
         input.placeholder = placeholder || "Type to search...";
+        if (selectEl.classList.contains("is-invalid")) input.classList.add("is-invalid");
         wrap.insertBefore(input, selectEl);
 
         var dropdown = document.createElement("div");
@@ -378,11 +399,14 @@
 
         function buildList(filterText) {
             dropdown.innerHTML = "";
-            var filterLower = (filterText || "").toLowerCase();
+            // Every typed word must appear somewhere in the option, in any order
+            // (e.g. "kia 10768" or "sushil sales").
+            var terms = (filterText || "").toLowerCase().split(/\s+/).filter(Boolean);
             var any = false;
             Array.prototype.forEach.call(selectEl.options, function (opt) {
                 if (!opt.value) return;
-                if (filterLower && opt.text.toLowerCase().indexOf(filterLower) === -1) return;
+                var text = opt.text.toLowerCase();
+                if (terms.some(function (t) { return text.indexOf(t) === -1; })) return;
                 any = true;
                 var item = document.createElement("div");
                 item.className = "searchable-select-item" + (opt.value === selectEl.value ? " active" : "");
@@ -428,86 +452,150 @@
         };
     }
 
-    // ── Location change — load sub-locations ─────────────────────────────
-    var suppressAssetReload = false;
+    // ── Cascading location levels ───────────────────────────────────────
+    var LEVEL_LABELS = ["Location", "Building / Area", "Room / Section"];
+    var levelsEl = document.getElementById("location_levels");
 
-    function onLocationChange(locId) {
-        var subSel = document.getElementById("sublocation_id");
-        subSel.innerHTML = '<option value="">— Select Sub-location —</option>';
-        subSel.onchange = function () { onSublocationChange(subSel.value); };
+    function levelLabel(i) { return LEVEL_LABELS[i] || ("Sub-area (level " + (i + 1) + ")"); }
+    function levelSelect(i) { return document.getElementById("loc_level_" + i); }
 
-        if (locId) {
-            callJSON("/my/tickets/sublocations", {parent_id: parseInt(locId)}, function (locs) {
-                (locs || []).forEach(function (l) {
-                    subSel.innerHTML += '<option value="' + l.id + '">' + l.name + '</option>';
-                });
-                if (subSel._searchableRefresh) subSel._searchableRefresh();   // <-- add
-            });
-        } else if (subSel._searchableRefresh) {
-            subSel._searchableRefresh();   // <-- add
+    function leafLocationId() {
+        var leaf = "";
+        for (var i = 0; levelSelect(i); i++) {
+            if (!levelSelect(i).value) break;
+            leaf = levelSelect(i).value;
         }
-
-        if (!suppressAssetReload) {
-    reloadAssets(locId, null, null);
-     }
+        return leaf;
     }
-    window.onLocationChange = onLocationChange;
 
-    function onSublocationChange(subId) {
-    if (!suppressAssetReload) {
-        var locId = document.getElementById("location_id").value;
-        var previousAssetId = document.getElementById("asset_id").value;
-        reloadAssets(locId, subId, previousAssetId);
+    function syncHiddenLocation() {
+        var top = levelSelect(0) ? levelSelect(0).value : "";
+        var leaf = leafLocationId();
+        document.getElementById("location_id").value = top || "";
+        document.getElementById("sublocation_id").value = (leaf && leaf !== top) ? leaf : "";
     }
-}
 
-    function reloadAssets(locationId, sublocationId, preserveAssetId) {
-    callJSON("/my/tickets/assets_by_location",
-        {location_id: locationId ? parseInt(locationId) : null,
-         sublocation_id: sublocationId ? parseInt(sublocationId) : null},
-        function (assets) {
-            var sel = document.getElementById("asset_id");
-            sel.innerHTML = '<option value="">— Select Equipment —</option>';
-            (assets || []).forEach(function (a) {
-                var opt = document.createElement("option");
-                opt.value = a.id;
-                opt.text = a.name;
-                opt.dataset.locationId   = a.location_id   || "";
-                opt.dataset.locationName = a.location_name || "";
-                sel.appendChild(opt);
+    function removeLevelsAfter(index) {
+        Array.prototype.forEach.call(levelsEl.querySelectorAll("[data-level]"), function (col) {
+            if (col.tagName !== "SELECT" && parseInt(col.dataset.level) > index) col.remove();
+        });
+    }
+
+    function selectedText(sel) {
+        var opt = sel.options[sel.selectedIndex];
+        return opt && opt.value ? opt.text.trim() : "";
+    }
+
+    function addLevel(index, locs) {
+        var parentName = selectedText(levelSelect(index - 1));
+        var col = document.createElement("div");
+        col.className = "col-md-4 mb-3";
+        col.dataset.level = index;
+        var label = document.createElement("label");
+        label.className = "form-label fw-bold";
+        label.htmlFor = "loc_level_" + index;
+        label.textContent = levelLabel(index);
+        var sel = document.createElement("select");
+        sel.id = "loc_level_" + index;
+        sel.className = "form-select loc-level";
+        sel.dataset.level = index;
+        var all = document.createElement("option");
+        all.value = "";
+        all.text = "— All of " + parentName + " —";
+        sel.appendChild(all);
+        locs.forEach(function (l) {
+            var opt = document.createElement("option");
+            opt.value = l.id;
+            opt.text = l.name;
+            opt.dataset.hasChildren = l.has_children ? "1" : "";
+            sel.appendChild(opt);
+        });
+        col.appendChild(label);
+        col.appendChild(sel);
+        levelsEl.appendChild(col);
+        sel.addEventListener("change", function () { onLevelChange(index); });
+        makeSearchable(sel, "Search " + levelLabel(index).toLowerCase() + "...");
+    }
+
+    // opts.reloadAssets (default true), opts.then: callback once the next level is built
+    function onLevelChange(index, opts) {
+        opts = opts || {};
+        removeLevelsAfter(index);
+        syncHiddenLocation();
+        var sel = levelSelect(index);
+        var opt = sel.options[sel.selectedIndex];
+        if (sel.value && opt && opt.dataset.hasChildren) {
+            callJSON("/my/tickets/sublocations", {parent_id: parseInt(sel.value)}, function (locs) {
+                if (locs && locs.length) addLevel(index + 1, locs);
+                if (opts.then) opts.then();
             });
-            if (preserveAssetId) sel.value = preserveAssetId;
+        } else if (opts.then) {
+            opts.then();
+        }
+        if (opts.reloadAssets !== false) reloadAssets(leafLocationId(), null);
+    }
+
+    // Select a chain of location ids level by level, e.g. [WATTAYAH, FORD SHOWROOM, BOILER ROOM]
+    function selectPath(pathIds, reloadAtEnd, done) {
+        function step(i) {
+            var sel = levelSelect(i);
+            if (i >= pathIds.length || !sel) {
+                syncHiddenLocation();
+                if (reloadAtEnd) reloadAssets(leafLocationId(), null);
+                if (done) done();
+                return;
+            }
+            sel.value = String(pathIds[i]);
+            if (sel.value !== String(pathIds[i])) sel.value = "";
             if (sel._searchableRefresh) sel._searchableRefresh();
+            if (!sel.value) { step(pathIds.length); return; }
+            onLevelChange(i, {reloadAssets: false, then: function () { step(i + 1); }});
         }
-    );
-}
+        step(0);
+    }
 
-    // ── Asset change — auto-fill location (without re-filtering itself away) ──
+    function reloadAssets(locationId, preserveAssetId) {
+        var sel = document.getElementById("asset_id");
+        var keep = preserveAssetId || sel.value;
+        callJSON("/my/tickets/assets_by_location",
+            {location_id: locationId ? parseInt(locationId) : null},
+            function (assets) {
+                sel.innerHTML = '<option value="">— Select Equipment —</option>';
+                (assets || []).forEach(function (a) {
+                    var opt = document.createElement("option");
+                    opt.value = a.id;
+                    opt.text = a.name;
+                    opt.dataset.locationId   = a.location_id   || "";
+                    opt.dataset.locationName = a.location_name || "";
+                    opt.dataset.locationPath = a.location_path || "";
+                    sel.appendChild(opt);
+                });
+                sel.value = keep || "";
+                if (sel.value !== String(keep || "")) {
+                    sel.value = "";
+                    clearAssetLocation();
+                }
+                if (sel._searchableRefresh) sel._searchableRefresh();
+            }
+        );
+    }
+
+    // ── Asset change — fill in its location levels ───────────────────────
     function onAssetChange(assetId) {
         if (!assetId) { clearAssetLocation(); return; }
-        var sel  = document.getElementById("asset_id");
-        var opt  = sel.options[sel.selectedIndex];
-        var locId   = opt.dataset.locationId   || "";
-        var locName = opt.dataset.locationName || "";
-
-        if (locName) {
-            document.getElementById("asset_location_display").textContent = locName;
+        var sel = document.getElementById("asset_id");
+        var opt = sel.options[sel.selectedIndex];
+        var path = (opt.dataset.locationPath || "").split(",").filter(Boolean);
+        var name = opt.dataset.locationName || "";
+        if (name) {
+            document.getElementById("asset_location_display").textContent = name;
             document.getElementById("asset_location_row").style.display = "";
         } else {
             clearAssetLocation();
         }
-
-        if (locId) {
-            var locSel = document.getElementById("location_id");
-            suppressAssetReload = true; // picking the asset drives the location, not the other way around
-            for (var i = 0; i < locSel.options.length; i++) {
-                if (locSel.options[i].value == locId) {
-                    locSel.selectedIndex = i;
-                    onLocationChange(locId);
-                    break;
-                }
-            }
-            suppressAssetReload = false;
+        if (path.length) {
+            // Picking the asset drives the location, not the other way round.
+            selectPath(path, false);
         }
     }
     window.onAssetChange = onAssetChange;
@@ -519,15 +607,21 @@
 
     // ── Init on load ─────────────────────────────────────────────────────
     document.addEventListener("DOMContentLoaded", function () {
-        makeSearchable(document.getElementById("location_id"), "Search location...");
-        makeSearchable(document.getElementById("sublocation_id"), "Search sub-location...");
+        var top = levelSelect(0);
+        makeSearchable(top, "Search location...");
+        top.addEventListener("change", function () { onLevelChange(0); });
         makeSearchable(document.getElementById("asset_id"), "Search equipment...");
+        makeSearchable(document.getElementById("portal_approver_id"),
+                       "Type name, emp code, department...");
 
-        var locSel = document.getElementById("location_id");
-        if (locSel && locSel.value) onLocationChange(locSel.value);
-
+        // Re-render after a validation error: restore the chosen levels.
+        var initial = (levelsEl.dataset.initialPath || "").split(",").filter(Boolean);
         var assSel = document.getElementById("asset_id");
-        if (assSel && assSel.value) onAssetChange(assSel.value);
+        if (initial.length) {
+            selectPath(initial, true);
+        } else if (assSel && assSel.value) {
+            onAssetChange(assSel.value);
+        }
     });
 })();
 //]]>
@@ -548,7 +642,7 @@
                             </div>
                             <h4 class="fw-bold">Request Submitted Successfully</h4>
                             <p class="text-muted">
-                                Your service request is now <strong>pending manager approval</strong>.
+                                Your service request is now <strong>pending approval</strong> by your selected approver.
                                 You will receive an email notification once it has been reviewed.
                             </p>
                         </div>
@@ -702,9 +796,9 @@
                                     <t t-elif="ticket.manager_approval_state == 'denied'">Denied</t>
                                     <t t-else="">—</t>
                                 </p>
-                                <p class="mb-2" t-if="ticket.manager_employee_id">
-                                    <strong>Manager:</strong>
-                                    <t t-out="ticket.manager_employee_id.name"/>
+                                <p class="mb-2" t-if="ticket.portal_approver_id or ticket.manager_employee_id">
+                                    <strong>Approver:</strong>
+                                    <t t-out="ticket.portal_approver_id.name or ticket.manager_employee_id.name"/>
                                 </p>
                             </div>
                             <div class="col-md-6">
@@ -712,15 +806,12 @@
                                     <strong>Job Category:</strong>
                                     <t t-out="line.job_category_id.name"/>
                                 </p>
-                                <p class="mb-2" t-if="line.location_id">
+                                <p class="mb-2" t-if="line.location_display">
                                     <strong>Location:</strong>
-                                    <t t-out="line.location_id.name"/>
-                                    <t t-if="line.sublocation_id">/
-                                        <t t-out="line.sublocation_id.name"/>
-                                    </t>
+                                    <t t-out="line.location_display"/>
                                 </p>
                                 <p class="mb-2" t-if="line.building">
-                                    <strong>Building / Unit:</strong>
+                                    <strong>Exact spot / Room:</strong>
                                     <t t-out="line.building"/>
                                 </p>
                                 <p class="mb-2" t-if="ticket.asset_id">

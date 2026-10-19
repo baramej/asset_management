@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="asset_portal_approver_view_list" model="ir.ui.view">
+        <field name="name">asset.portal.approver.list</field>
+        <field name="model">asset.portal.approver</field>
+        <field name="arch" type="xml">
+            <list string="Service Request Approvers" editable="bottom"
+                  decoration-danger="not approval_email">
+                <field name="dept_code"/>
+                <field name="dept_name"/>
+                <field name="company_code"/>
+                <field name="emp_code"/>
+                <field name="eg_name"/>
+                <field name="name"/>
+                <field name="employee_id" optional="show"/>
+                <field name="email" optional="show" widget="email"/>
+                <field name="approval_email" optional="show" widget="email"/>
+                <field name="active" column_invisible="True"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="asset_portal_approver_view_form" model="ir.ui.view">
+        <field name="name">asset.portal.approver.form</field>
+        <field name="model">asset.portal.approver</field>
+        <field name="arch" type="xml">
+            <form string="Approver">
+                <header>
+                    <button name="action_rematch_employees" type="object"
+                            string="Re-match Employee" class="btn-secondary"/>
+                </header>
+                <sheet>
+                    <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>
+                    <div class="alert alert-warning" role="alert" invisible="approval_email">
+                        No email for this approver — they will <b>not</b> appear on the portal
+                        until an Email is set or the linked employee has a work email.
+                    </div>
+                    <group>
+                        <group string="Department">
+                            <field name="dept_code" placeholder="e.g. A2"/>
+                            <field name="dept_name" placeholder="e.g. KIA SALES"/>
+                            <field name="company_code" placeholder="e.g. B"/>
+                        </group>
+                        <group string="Approver">
+                            <field name="emp_code" placeholder="e.g. 25728"/>
+                            <field name="eg_name"/>
+                            <field name="name"/>
+                            <field name="employee_id"/>
+                            <field name="email" widget="email"/>
+                            <field name="approval_email" widget="email"/>
+                            <field name="active" invisible="1"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="asset_portal_approver_view_search" model="ir.ui.view">
+        <field name="name">asset.portal.approver.search</field>
+        <field name="model">asset.portal.approver</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name" string="Approver"
+                       filter_domain="['|', '|', ('name', 'ilike', self), ('eg_name', 'ilike', self), ('emp_code', 'ilike', self)]"/>
+                <field name="dept_name" string="Department"
+                       filter_domain="['|', ('dept_name', 'ilike', self), ('dept_code', 'ilike', self)]"/>
+                <field name="company_code"/>
+                <filter string="Missing Email" name="no_email" domain="[('approval_email', '=', False)]"/>
+                <filter string="No Employee Match" name="no_employee" domain="[('employee_id', '=', False)]"/>
+                <separator/>
+                <filter string="Archived" name="inactive" domain="[('active', '=', False)]"/>
+                <group>
+                    <filter string="Department" name="group_dept" context="{'group_by': 'dept_name'}"/>
+                    <filter string="Company" name="group_company" context="{'group_by': 'company_code'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_asset_portal_approver" model="ir.actions.act_window">
+        <field name="name">Service Request Approvers</field>
+        <field name="res_model">asset.portal.approver</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="asset_portal_approver_view_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Add the approvers employees can pick on the portal</p>
+            <p>Use <b>Import records</b> to load the approver sheet
+                (App Dept, App Dept Name, App Company, Approver EmpCode, EGNAME, App Name, Email).</p>
+        </field>
+    </record>
+
+    <menuitem id="menu_asset_portal_approver"
+              name="Service Request Approvers"
+              parent="menu_asset_mgmt_config"
+              action="action_asset_portal_approver"
+              sequence="95"/>
+</odoo>
