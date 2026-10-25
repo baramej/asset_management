@@ -476,6 +476,17 @@ class AssetJobOrder(models.Model):
         ).report_action(self)
 
     def action_print_worker_card(self):
+        """Open the one-page technician job card in a new tab and send it
+        straight to the printer (no PDF download)."""
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_url",
+            "url": f"/asset/job_order/{self.id}/job_card/print",
+            "target": "new",
+        }
+
+    def action_download_worker_card(self):
+        """Technician job card as a PDF file (also in the Print menu)."""
         return self.env.ref(
             "asset_management.action_report_asset_job_order_worker"
         ).report_action(self)
