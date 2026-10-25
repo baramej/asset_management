@@ -84,15 +84,17 @@
                             class="btn-primary"
                             invisible="state not in ('approved', 'closed') or invoice_id != False"/>
 
-                    <button name="action_print_report"
-                            string="Print Report"
-                            type="object"
-                            icon="fa-print"/>
-
                     <button name="action_print_worker_card"
                             string="Print Worker Job Card"
                             type="object"
-                            icon="fa-print"/>
+                            icon="fa-print"
+                            help="Opens the one-page technician job card and sends it straight to the printer."/>
+
+                    <button name="action_download_worker_card"
+                            string="Job Card PDF"
+                            type="object"
+                            icon="fa-download"
+                            class="btn-link"/>
 
                     <field name="state"
                            widget="statusbar"
