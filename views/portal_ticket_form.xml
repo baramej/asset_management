@@ -97,6 +97,8 @@
                                                    t-att-value="user_department.name if user_department else '—'"/>
                                             <input type="hidden" name="department_id"
                                                    t-att-value="user_department.id if user_department else ''"/>
+                                             <input type="text" class="form-control" disabled="disabled"
+                                                   t-att-value="display_department_name or '—'"/>
                                         </div>
                                     </div>
 
@@ -298,8 +300,8 @@
                                                 <div class="alert py-2 mb-0 text-muted"
                                                      style="background:#f8f9ff;border:1px solid #e0e4ff;border-radius:8px;font-size:13px">
                                                     <i class="fa fa-info-circle me-1"/>
-                                                    No approver list is configured — the request will follow the
-                                                    standard approval route.
+                                                    No approver is set up for your department yet — your request
+                                                    will go to your manager for approval.
                                                 </div>
                                             </div>
                                         </t>
