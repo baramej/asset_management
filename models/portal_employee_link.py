@@ -114,6 +114,38 @@ class HrEmployee(models.Model):
         help="The company the employee really belongs to, e.g. Auto Arab, "
         "when it is held under another Odoo company (e.g. SBG).",
     )
+
+    def _asset_legacy_department(self):
+        """(code, name) of the employee's department as held in the legacy HR
+        system: emp_dept_code / emp_dept_name, filled by the legacy HR sync
+        (rental_management_hr_sync). Odoo's own department_id is NOT used:
+        the sync never fills it.
+
+        When this record has no legacy department but another record of the
+        same employee does (same employee code, same real company, e.g. a
+        record created at portal sign-up next to the synced one), that one is
+        used instead.
+        """
+        self.ensure_one()
+        if "emp_dept_code" not in self._fields:
+            return False, False
+        if self.emp_dept_code or self.emp_dept_name:
+            return self.emp_dept_code or False, self.emp_dept_name or False
+        if not self.employee_code:
+            return False, False
+        twins = self.sudo().with_context(active_test=False).search([
+            ("id", "!=", self.id),
+            ("employee_code", "=", self.employee_code),
+            ("emp_dept_code", "!=", False),
+        ])
+        company_code = self.portal_company_id.code or (
+            self.emp_company_code if "emp_company_code" in self._fields else False)
+        if company_code:
+            twins = twins.filtered(lambda e: e._asset_matches_legacy_code(company_code))
+        if len(twins) == 1:
+            return twins.emp_dept_code, twins.emp_dept_name
+        return False, False
+
     portal_self_registered = fields.Boolean(
         string="Created from Portal Sign-up",
         readonly=True,
