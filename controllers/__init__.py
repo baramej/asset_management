@@ -4,3 +4,4 @@ from . import portal_contract_visit
 from . import portal_ticket
 from . import portal_profile
 from . import portal_signup
+from . import job_card_print
