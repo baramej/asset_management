@@ -113,9 +113,30 @@ class AssetPortalApprover(models.Model):
                 raise ValidationError(_("%s is not a valid email address.", rec.email))
 
     @api.model
-    def _portal_selectable(self):
-        """Approvers offered on the portal: active, with an email to send to."""
-        return self.sudo().search([("approval_email", "!=", False)])
+    def _normalize_dept_code(self, code):
+        """'010', '10' and ' 10 ' are the same department; 'A2' stays 'A2'."""
+        code = (code or "").strip().upper()
+        return code.lstrip("0") or code
+
+    @api.model
+    def _portal_selectable(self, employee=None):
+        """Approvers offered on the portal: active, with an email to send to.
+
+        With an employee, only the approvers whose App Dept matches the
+        employee's legacy department code (hr.employee.emp_dept_code, filled
+        by the legacy HR sync). Nobody is offered when no approver is set up
+        for that department (the request then follows the standard manager
+        approval). Everyone is offered when the employee's portal company has
+        "See All" (e.g. Al Manar) or the employee has no department code.
+        """
+        approvers = self.sudo().search([("approval_email", "!=", False)])
+        if not employee or employee.portal_company_id.portal_full_access:
+            return approvers
+        dept, _dept_name = employee._asset_legacy_department()
+        if not dept:
+            return approvers
+        key = self._normalize_dept_code(dept)
+        return approvers.filtered(lambda a: self._normalize_dept_code(a.dept_code) == key)
 
     def action_rematch_employees(self):
         """Re-run the EmpCode → employee match (e.g. after an HR sync)."""
