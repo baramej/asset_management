@@ -77,6 +77,15 @@ class HelpdeskPortalTicketController(http.Controller):
         employee = self._get_employee(user)
         user_company = self._get_company(user, employee)
         user_department = employee.department_id if employee else False
+        # What the employee sees as their department: the legacy HR one
+        # ("IT (10)"), which is also what filters the approver list.
+        dept_code, dept_name = employee._asset_legacy_department() if employee else (False, False)
+        if dept_code or dept_name:
+            display_department_name = (
+                f"{dept_name} ({dept_code})" if dept_name and dept_code else (dept_name or dept_code)
+            )
+        else:
+            display_department_name = user_department.name if user_department else "—"
 
         scope_company = self._get_scope_company(user, employee)
         locations = self._top_locations()
@@ -97,7 +106,7 @@ class HelpdeskPortalTicketController(http.Controller):
         initial_location_path = ",".join(
             str(i) for i in self._location_chain(initial_location, locations).ids
         )
-        approvers = request.env["asset.portal.approver"]._portal_selectable()
+        approvers = request.env["asset.portal.approver"]._portal_selectable(employee)
         if post and post.get("portal_approver_id"):
             selected_approver_id = str(post.get("portal_approver_id"))
         else:
@@ -113,6 +122,7 @@ class HelpdeskPortalTicketController(http.Controller):
                 else user_company.name
             ),
             "user_department": user_department,
+            "display_department_name": display_department_name,
             "locations": locations,
             "job_categories": job_categories,
             "assets": assets,
@@ -135,15 +145,15 @@ class HelpdeskPortalTicketController(http.Controller):
         approver = last_ticket.portal_approver_id
         return approver if approver and approver in approvers else False
 
-    def _resolve_approver(self, value):
-        """Approver for a posted id, only if it is on the selectable list."""
+    def _resolve_approver(self, value, employee=None):
+        """Approver for a posted id, only if it is on this employee's list."""
         try:
             approver_id = int(value or 0)
         except (TypeError, ValueError):
             return False
         if not approver_id:
             return False
-        approvers = request.env["asset.portal.approver"]._portal_selectable()
+        approvers = request.env["asset.portal.approver"]._portal_selectable(employee)
         approver = approvers.filtered(lambda a: a.id == approver_id)
         return approver or False
 
@@ -219,8 +229,9 @@ class HelpdeskPortalTicketController(http.Controller):
         if not post.get("job_category_id"):
             errors["job_category_id"] = True
             error_message.append(_("Job Category is required."))
-        approver = self._resolve_approver(post.get("portal_approver_id"))
-        if not approver and request.env["asset.portal.approver"]._portal_selectable():
+        employee = self._get_employee(user)
+        approver = self._resolve_approver(post.get("portal_approver_id"), employee)
+        if not approver and request.env["asset.portal.approver"]._portal_selectable(employee):
             errors["portal_approver_id"] = True
             error_message.append(_("Please select an approver from the list."))
 
